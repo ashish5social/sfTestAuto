@@ -107,6 +107,20 @@ jobs:
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
           echo "Running: $TARGET"
 
+      - name: Check mail configuration
+        # Cheap to check now; the email step runs 10+ minutes later and a
+        # missing sender there means re-running the whole suite.
+        run: |
+          missing=""
+          [ -n "${{ secrets.MAILJET_API_KEY }}" ]    || missing="$missing MAILJET_API_KEY"
+          [ -n "${{ secrets.MAILJET_SECRET_KEY }}" ] || missing="$missing MAILJET_SECRET_KEY"
+          [ -n "${{ vars.MAIL_FROM }}" ]             || missing="$missing MAIL_FROM"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing mail config:$missing — see docs/CI.md"
+            exit 1
+          fi
+          echo "Mail: ${{ vars.MAIL_SERVER || 'in-v3.mailjet.com' }} as ${{ vars.MAIL_FROM }}"
+
       - name: Preflight (sfauto doctor)
         run: python -m src.cli doctor
 
@@ -169,14 +183,17 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Published: $URL"
 
-      - name: Rebuild email body with the real published URL
-        if: steps.publish.outputs.url != ''
+      - name: Build email body with the published URL
+        # Always: if publishing failed, the body falls back to pointing at
+        # the workflow run, so the mail is still useful.
+        if: always()
         env:
           SFAUTO_SELECTION: ${{ inputs.tests }}
+          PUBLIC_URL: ${{ steps.publish.outputs.url }}
         run: |
           python scripts/ci_report.py --reports-dir reports --out-dir ci_out \
             --run-id "${{ github.run_id }}" \
-            --public-url "${{ steps.publish.outputs.url }}"
+            --public-url "$PUBLIC_URL"
 
       - name: Upload report as a workflow artifact
         uses: actions/upload-artifact@v4
@@ -190,18 +207,24 @@ jobs:
         if: always()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ vars.MAIL_SERVER || 'smtp.gmail.com' }}
-          server_port: ${{ vars.MAIL_PORT || 465 }}
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          from: sfauto CI <${{ secrets.MAIL_USERNAME }}>
+          # Mailjet's SMTP relay. The API Key is the SMTP username and the
+          # Secret Key is the password — Mailjet has no separate SMTP
+          # credential. Port 587 is STARTTLS, so secure(=implicit TLS) is
+          # false; set MAIL_PORT=465 and MAIL_SECURE=true to use SMTPS.
+          server_address: ${{ vars.MAIL_SERVER || 'in-v3.mailjet.com' }}
+          server_port: ${{ vars.MAIL_PORT || 587 }}
+          secure: ${{ vars.MAIL_SECURE || false }}
+          username: ${{ secrets.MAILJET_API_KEY }}
+          password: ${{ secrets.MAILJET_SECRET_KEY }}
+          # Must be a sender address validated in your Mailjet account,
+          # otherwise Mailjet rejects the message.
+          from: ${{ vars.MAIL_FROM_NAME || 'sfauto CI' }} <${{ vars.MAIL_FROM }}>
           to: ${{ inputs.emails }}
           subject: ${{ steps.report.outputs.subject }}
           html_body: file://ci_out/email_body.html
-          # Skipped automatically when the report exceeds the mail size cap;
-          # the published link in the body still has everything.
-          attachments: ${{ steps.report.outputs.attach == 'true' && 'ci_out/sfauto_report.html' || '' }}
+          # Deliberately no attachment: the report embeds video and would
+          # breach mail size limits as the suite grows. The body carries the
+          # summary and links to the published page.
           convert_markdown: false
 
       - name: Job summary

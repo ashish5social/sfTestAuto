@@ -107,6 +107,23 @@ def build_email_body(entries: list[dict], *, ctx: dict,
         for k, v in ctx.items() if v
     )
 
+    fallback_url = ctx.get("Workflow run") or ""
+    if public_url:
+        footer_note = (
+            "The full report — every step, screenshot, video and API "
+            "request/response — is published at the link above. It is a "
+            "single self-contained page; nothing else needs to load."
+        )
+    elif fallback_url:
+        footer_note = (
+            f'The report could not be published this time. It is still '
+            f'available as an artifact on the '
+            f'<a href="{html.escape(fallback_url)}" style="color:#1d4ed8">'
+            f'workflow run</a>.'
+        )
+    else:
+        footer_note = "No published report is available for this run."
+
     link_block = ""
     if public_url:
         link_block = f"""
@@ -142,9 +159,7 @@ def build_email_body(entries: list[dict], *, ctx: dict,
   {link_block}
   <tr><td style="padding:18px 24px;background:#f9fafb;
                  font:12px/1.6 system-ui,sans-serif;color:#6b7280">
-    The full report — every screenshot, video and API request/response — is
-    attached as a single self-contained HTML file. Download it and open it
-    in a browser; it needs no network access.
+    {footer_note}
   </td></tr>
 </table>
 </body></html>"""
@@ -221,14 +236,12 @@ def main() -> int:
     run_date = now.strftime("%Y-%m-%d")
     run_dir_name = f"{run_date}_{args.run_id}"
 
-    # Mail servers reject oversized messages (Gmail caps at 25MB), and
-    # video-per-test grows the report fast. Past the threshold we rely on
-    # the published link instead of attaching.
-    attach = False
-    size_mb = 0.0
-    if combined and combined.exists():
-        size_mb = combined.stat().st_size / (1024 * 1024)
-        attach = size_mb <= float(os.getenv("SFAUTO_MAX_ATTACH_MB", "20"))
+    # Reports are delivered as a link to the published page, never as an
+    # attachment: they carry embedded video and would breach mail size
+    # limits as the suite grows. Size is still recorded so the gh-pages
+    # branch's growth is visible.
+    size_mb = (combined.stat().st_size / (1024 * 1024)
+               if combined and combined.exists() else 0.0)
 
     (out_dir / "run_meta.json").write_text(json.dumps({
         "run_id": str(args.run_id),
@@ -257,13 +270,12 @@ def main() -> int:
             fh.write(f"subject={subject}\n")
             fh.write(f"has_report={'true' if combined else 'false'}\n")
             fh.write(f"run_dir={run_dir_name}\n")
-            fh.write(f"attach={'true' if attach else 'false'}\n")
             fh.write(f"size_mb={size_mb:.2f}\n")
 
     print(f"tests={len(entries)} passed={passed} failed={failed} overall={overall}")
     print(f"combined: {combined}")
     print(f"email body: {out_dir / 'email_body.html'}")
-    print(f"run_dir={run_dir_name} size={size_mb:.2f}MB attach={attach}")
+    print(f"run_dir={run_dir_name} size={size_mb:.2f}MB")
     return 0
 
 

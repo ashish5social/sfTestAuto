@@ -957,7 +957,6 @@ Mismatched image sizes always count as a diff. Refresh baselines with `sfauto te
 | `SF_CLIENT_ID`, `SF_CLIENT_SECRET` | — | OAuth client_credentials (preferred over SOAP) |
 | `SF_JWT_KEY_FILE`, `SF_JWT_USERNAME` | — | JWT bearer — the only headless flow that yields a `web`-scoped token, so it is what makes UI login work on SSO/MFA orgs. See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) |
 | `SFAUTO_KEEP_RECORDS` | — | `1` keeps records a test created instead of deleting them at teardown |
-| `SFAUTO_MAX_ATTACH_MB` | `20` | Max report size to attach to the CI email; larger reports rely on the published link |
 | `BROWSER_HEADLESS` | `false` | `true` forces headless even without `--headless` |
 | `SFAUTO_OUTPUT_DIR` | project root | Where reports/, screenshots/, videos_tmp/ live |
 | `SFAUTO_API_LOG_FULL` | `false` | Disable 700-char body truncation in API logs |
