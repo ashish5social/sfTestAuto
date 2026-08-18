@@ -13,8 +13,8 @@ on:
           - "All tests"
           - "All UI tests"
           - "All API tests"
-          - "tests/ui/test_create_account.py"
           - "tests/api/test_account_api.py"
+          - "tests/ui/test_create_account.py"
           - "Custom (fill in custom_target below)"
       custom_target:
         description: "Custom path or -k filter. Only used when tests = Custom."

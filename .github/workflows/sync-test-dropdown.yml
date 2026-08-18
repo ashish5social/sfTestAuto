@@ -1,0 +1,45 @@
+name: Sync test dropdown
+
+# workflow_dispatch choice options are static YAML, so the "Run Salesforce
+# Tests" dropdown goes stale the moment someone adds a test file. This
+# regenerates it from what is actually on disk and commits the result.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tests/ui/test_*.py"
+      - "tests/api/test_*.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sfauto-sync-dropdown
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate the dropdown
+        run: python scripts/sync_test_dropdown.py
+
+      - name: Commit if it changed
+        run: |
+          if git diff --quiet -- .github/workflows/run-tests.yml; then
+            echo "Dropdown already in sync."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/run-tests.yml
+          git commit -m "Sync test dropdown with tests/ [skip ci]"
+          git push

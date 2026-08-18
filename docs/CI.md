@@ -6,6 +6,7 @@ Two manual workflows:
 |---|---|
 | **Run Salesforce Tests** | Runs the tests you pick, publishes the report to GitHub Pages, emails it |
 | **Clean up published reports** | Deletes old published runs on a retention window you choose |
+| **Sync test dropdown** | Keeps the test picker in step with the files on disk (automatic) |
 
 Both are `workflow_dispatch` — you start them from the **Actions** tab, no
 push required.
@@ -134,10 +135,16 @@ red run still tells you what broke.
 
 ### Adding a new test to the dropdown
 
-`workflow_dispatch` choice options are static YAML. When you add a test
-file, add a line to `options:` in
-`.github/workflows/run-tests.yml`. Until you do, `All tests` still picks
-it up automatically, and `Custom` can target it directly.
+Nothing to do. `workflow_dispatch` choice options are static YAML, so the
+**Sync test dropdown** workflow regenerates them on every push that adds
+or removes a `tests/{ui,api}/test_*.py` file and commits the result.
+
+To refresh it by hand:
+
+```bash
+python scripts/sync_test_dropdown.py          # rewrite the options block
+python scripts/sync_test_dropdown.py --check  # exit 1 if out of sync
+```
 
 ---
 
@@ -158,6 +165,15 @@ Retention counts **today as day 1**:
   Run it once that way first.
 - **purge_artifacts** also deletes workflow artifacts older than the same
   window.
+
+This prunes *published reports*. Test records left in Salesforce are a
+separate concern — the suite deletes what it creates at teardown (see
+`SFAUTO_KEEP_RECORDS`), and `scripts/cleanup_test_data.py` sweeps up
+anything older that still carries the record prefix:
+
+```bash
+python scripts/cleanup_test_data.py --keep-days 3 --dry-run
+```
 
 "Today" is the **org's** local date from the active profile, not the
 runner's UTC date. GitHub runners are UTC, and for IST that is a

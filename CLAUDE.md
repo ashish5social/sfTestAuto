@@ -95,7 +95,10 @@ sfauto/
 │   └── conftest.py                     ← all framework wiring (fixtures, screencast, golden diff, browser launch args)
 │
 ├── scripts/
-│   ├── build_combined_run_report.py    ← CI: per-test HTMLs → one offline run_<id>.html (parses titles for friendly names; writes summary.json)
+│   ├── ci_report.py                    ← CI: per-test HTMLs → one offline report + email body (CURRENT)
+│   ├── gh_pages_index.py               ← rebuilds the gh-pages run index
+│   ├── gh_pages_prune.py               ← deletes published runs past the retention window
+│   ├── build_combined_run_report.py    ← superseded by ci_report.py; kept, not invoked
 │   ├── generate_index.py               ← legacy per-test list view for GH Pages (still callable, not invoked by the workflow anymore)
 │   ├── cleanup_test_data.py            ← deletes SFAUTO-marked records from Salesforce (--keep-days N --dry-run)
 │   └── sync_test_dropdown.py           ← auto-syncs the test dropdown in run-tests.yml when test files change
@@ -260,10 +263,16 @@ the reporter output format, keep that single line.
 
 Salesforce shows an email-verification page when the request comes from an IP
 not on the Network Access whitelist (laptops, GH Actions runners). `sf.login()`
-detects this and bypasses via OAuth client_credentials → SOAP fallback (writes
-a session id, navigates to `/secur/frontdoor.jsp?sid=...`). Requires
-`SF_CLIENT_ID` + `SF_CLIENT_SECRET` set, AND the External Client App must
-have "Enable Client Credentials Flow" + "Relax IP restrictions" turned on.
+bypasses this by obtaining a session id out of band and navigating to
+`/secur/frontdoor.jsp?sid=...`.
+
+**frontdoor requires a `web`-scoped token, and only JWT bearer issues one
+headlessly.** Client-credentials tokens carry `api` scope only — adding
+`web` to the app does not change the issued scope — and frontdoor rejects
+them, bouncing the browser back to the login/SSO page. So SSO-federated or
+MFA-gated orgs need `SF_JWT_KEY_FILE` + `SF_CLIENT_ID` + `SF_JWT_USERNAME`,
+the certificate uploaded to the app, and the user's profile pre-authorized
+("Admin approved users are pre-authorized"). See docs/AUTHENTICATION.md.
 
 ### Browser-specific handling
 
@@ -321,14 +330,16 @@ have "Enable Client Credentials Flow" + "Relax IP restrictions" turned on.
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `run-tests.yml` | `workflow_dispatch` (manual) | The main test workflow. Inputs: tests / workers / browser / email. Installs the requested browser only, runs pytest-xdist with the right `--browser` flags, builds combined HTML, deploys to GH Pages at `runs/<id>/`, optionally emails the link. |
-| `cleanup-test-data.yml` | `workflow_dispatch` + scheduled | Runs `scripts/cleanup_test_data.py --keep-days N --dry-run? `. Walks SF in dependency order. |
+| `cleanup-reports.yml` | `workflow_dispatch` | Prunes published runs from gh-pages. `keep_days` counts today as day 1; 0 wipes everything. |
+| `sync-test-dropdown.yml` | push to `tests/**` | Regenerates the run-tests dropdown via `scripts/sync_test_dropdown.py`. |
 | `sync-test-list.yml` | `push` to main (when `tests/ui/test_*.py` etc. changes) | Auto-refreshes the `tests` dropdown in `run-tests.yml` so it always reflects current test files. Needs `GH_PAT` secret. |
 
-Required secrets (`Settings → Secrets and variables → Actions`):
-`SF_USERNAME`, `SF_PASSWORD`, `SF_SECURITY_TOKEN`, `SF_LOGIN_URL`,
-`SF_CLIENT_ID`, `SF_CLIENT_SECRET`, optionally `SMTP_USERNAME` +
-`SMTP_PASSWORD` (Mailjet API keys for email), optionally `GH_PAT` for the
-sync workflow.
+Required secrets (`Settings → Secrets and variables → Actions → Secrets`):
+`SF_USERNAME`, `SF_CLIENT_ID`, `SF_JWT_USERNAME`, `SF_JWT_KEY` (the whole
+private key), `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`.
+Variables: `SF_LOGIN_URL`, `MAIL_FROM` (must be a validated Mailjet
+sender). No password, security token or client secret is needed — CI
+authenticates with JWT. Full guide: docs/CI.md.
 
 ---
 
@@ -380,8 +391,9 @@ common ones:
 - Lookup returned 0 results → record genuinely missing OR debounce hasn't fired (increase wait)
 - Picklist value not found → call `sf.click(label)` first to force-open the popup, wait 1s, then retry
 - Configure Cart edit didn't apply → call `sf.wait_for_config_update()` after the edit
-- Frontdoor login fails with OAuth CC error → External Client App needs "Enable Client Credentials Flow" + "Relax IP restrictions"
-- Tests pass locally but fail in CI → IP not whitelisted; confirm `SF_CLIENT_ID` + `SF_CLIENT_SECRET` are set as repo secrets
+- Frontdoor lands back on the login/SSO page → token lacks `web` scope; you are on client-credentials, not JWT
+- JWT returns "user hasn't approved this consumer" → app not pre-authorized for the user's profile
+- Tests pass locally but fail in CI → IP not whitelisted; frontdoor needs a `web`-scoped token, so confirm `SF_CLIENT_ID` + `SF_JWT_KEY` + `SF_JWT_USERNAME` are set. Client-credentials alone cannot drive a browser login.
 - Live screencast tile is dim in Firefox/WebKit → CDP is Chromium-only, fall back to recorded video
 
 When stuck, point the user at the relevant README section rather than guessing.

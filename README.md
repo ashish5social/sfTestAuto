@@ -66,8 +66,9 @@ cd sfauto
 
 # 3. Configure Salesforce credentials
 cp .env.example .env
-$EDITOR .env           # fill in SF_USERNAME, SF_PASSWORD, SF_LOGIN_URL,
-                       # SF_CLIENT_ID, SF_CLIENT_SECRET (External Client App)
+$EDITOR .env           # fill in SF_USERNAME, SF_LOGIN_URL, SF_CLIENT_ID and
+                       # either SF_PASSWORD or (for SSO/MFA orgs) the JWT
+                       # settings — see docs/AUTHENTICATION.md
 
 # 4. Activate venv + install the sfauto CLI
 source venv/bin/activate
@@ -88,68 +89,77 @@ sfauto server
 
 ## Running tests via GitHub Actions
 
-The framework ships a `workflow_dispatch` GitHub Actions workflow you can trigger from the **Actions** tab of the repo — no local install required.
+Two `workflow_dispatch` workflows ship in `.github/workflows/`. Trigger
+them from the **Actions** tab — no local install required.
 
-### Step-by-step
+**[docs/CI.md](docs/CI.md) is the full setup guide.** The short version:
 
-1. **Push the framework to your repo** (or fork `<you>/sfauto`).
-2. **Add repository secrets** at `Settings → Secrets and variables → Actions`:
-   - `SF_USERNAME` — Salesforce username
-   - `SF_PASSWORD` — Salesforce password
-   - `SF_SECURITY_TOKEN` — security token (from `Setup → My Personal Information → Reset Security Token`)
-   - `SF_LOGIN_URL` — e.g. `https://your-sandbox.sandbox.my.salesforce.com`
-   - `SF_CLIENT_ID` + `SF_CLIENT_SECRET` — External Client App with **Enable Client Credentials Flow** + **Relax IP restrictions** turned on. Required for the frontdoor login bypass — without it, the GitHub Actions runner's IP gets blocked by Salesforce email verification.
-   - `SMTP_USERNAME` + `SMTP_PASSWORD` — Mailjet API public + private keys (optional, only needed if you want email notifications)
-   - `GH_PAT` — fine-grained PAT with `contents:write` + `workflows:write` (optional, only needed for the auto-sync workflow that refreshes the test dropdown when test files change)
-3. **Enable GitHub Pages** at `Settings → Pages → Source: gh-pages branch`. The workflow publishes the combined report to `https://<owner>.github.io/<repo>/runs/<run-id>/`.
-4. **Trigger a run** at `Actions → Salesforce UI Test Automation → Run workflow`:
+### 1. Add secrets
 
-   ![Workflow inputs](https://docs.github.com/assets/cb-25535/mw-1440/images/help/repository/workflow-dispatch-event.webp)
+`Settings → Secrets and variables → Actions → Secrets`
 
-   Choose:
-   - **tests**: `all` / `ui-only` / `api-only` / a specific filename
-   - **workers**: 1 – 4 parallel pytest subprocesses (default 2)
-   - **browser**: chrome / edge / firefox / webkit (default chrome)
-   - **email**: comma-separated recipients (optional)
+| Secret | Purpose |
+|---|---|
+| `SF_USERNAME` | Salesforce username |
+| `SF_CLIENT_ID` | External Client App consumer key |
+| `SF_JWT_USERNAME` | the user JWT impersonates |
+| `SF_JWT_KEY` | the whole private key file, BEGIN/END lines included |
+| `MAILJET_API_KEY` / `MAILJET_SECRET_KEY` | Mailjet SMTP credentials |
 
-5. **Wait ~3-8 minutes** for the run to finish. The workflow:
-   - Installs Python 3.11, the package, and your chosen browser (downloads on demand — chromium / msedge / firefox / webkit)
-   - Runs `pytest -n $WORKERS --dist=loadfile --headless` with the right `--browser` / `--browser-channel` flags
-   - Builds a single combined `run_<id>.html` containing every test's screenshots, base64-embedded videos, and step trace
-   - Deploys it to GH Pages at `runs/<id>/index.html`
-   - Sends a Mailjet email with the View Full Report link (no HTML attachment — the report page has its own Download button)
+No password, no security token, no client secret. **JWT bearer is what
+makes CI work**: it is the only headless flow that issues a `web`-scoped
+token, and only a `web`-scoped token is accepted by `frontdoor.jsp` —
+which is how the runner skips the login page its unknown IP would
+otherwise be challenged at. Client-credentials tokens carry `api` scope
+only and are rejected there, so they cannot drive a browser login no
+matter how the app is configured. See
+[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
-6. **Open the report** at `https://<owner>.github.io/<repo>/runs/<id>/` or click the link in the email.
+### 2. Add variables
 
-### Email summary you'll get
+`Settings → Secrets and variables → Actions → Variables`
 
-```
-Subject: [PASSED] Salesforce Test Run run-15-20260521-1138 — 3/4 passed
+| Variable | Purpose |
+|---|---|
+| `SF_LOGIN_URL` | e.g. `https://your-org.my.salesforce.com` |
+| `MAIL_FROM` | sender address — must be a **validated Mailjet sender** |
 
-Salesforce Test Run Complete
-[PASSED]
+### 3. Enable GitHub Pages
 
-Run         run-15-20260521-1138
-Branch      main @ a1b2c3d
-Tests       all
-Browser     chrome
-Workers     2
-Triggered   ashish-sfauto
+The first run creates the `gh-pages` branch; then set
+`Settings → Pages → Source: Deploy from a branch → gh-pages / root`.
 
-Total       4
-Passed      3
-Failed      1
+> On a public repository this page is world-readable and search-indexed,
+> screenshots and video included.
 
-[View Full Report]
-Use the Download button inside the report page if you need an offline copy.
-```
+### Run Salesforce Tests
 
-The subject line carries the status pill + pass ratio so triage happens from the inbox preview without opening anything.
+Inputs: **tests** (all / UI / API / one file / custom path or `-k`
+filter), **custom_target**, **emails** (comma-separated), **workers**
+(1/2/4).
 
-### Other workflows
+The run installs the package and Chromium, preflights with `sfauto
+doctor`, runs pytest, stitches every per-test report into one
+self-contained HTML, publishes it to
+`https://<owner>.github.io/<repo>/runs/<date>_<id>/`, and emails a
+pass/fail summary linking to it.
 
-- **`cleanup-test-data.yml`** — manual cleanup of stale SFAUTO-marked records from Salesforce. Inputs: `keep_days`, `dry_run`. Walks Quote → Opportunity → Contact → Account in reverse dependency order.
-- **`sync-test-list.yml`** — runs on push to main when any `tests/ui/test_*.py` / `tests/api/test_*.py` / data / definition file changes. Auto-refreshes the `tests` dropdown in `run-tests.yml` so it always reflects the current set of tests. Needs `GH_PAT`.
+The report is **linked, not attached** — it embeds video and would breach
+mail size limits as the suite grows. It is also uploaded as a workflow
+artifact, which is where the email points if publishing ever fails. The
+email is sent whether the suite passes or fails; the job still goes red
+on failure.
+
+### Clean up published reports
+
+Deletes published runs from `gh-pages`. `keep_days` counts **today as day
+1**: `0` wipes everything, `1` keeps today, `7` keeps today plus the
+previous six days. `dry_run` defaults on. `purge_artifacts` optionally
+prunes workflow artifacts on the same window.
+
+"Today" is the org profile's local date, not the runner's UTC date —
+otherwise a run made at 9pm IST reads as yesterday to a UTC runner and is
+deleted a day early.
 
 ---
 
@@ -503,9 +513,9 @@ sfauto/
 │   └── sync_test_dropdown.py          ← keeps CI workflow's test dropdown in sync
 │
 ├── .github/workflows/
-│   ├── run-tests.yml                  ← manual-trigger CI workflow (browser + workers + email)
-│   ├── cleanup-test-data.yml          ← scheduled cleanup
-│   └── sync-test-list.yml             ← auto-syncs CI dropdown when test files change
+│   ├── run-tests.yml                  ← manual run: select tests, publish report, email it
+│   ├── cleanup-reports.yml            ← manual prune of published runs (keep_days)
+│   └── sync-test-dropdown.yml         ← keeps the test picker in step with tests/
 │
 └── skills/                            ← Claude AI skills for AI-assisted test authoring
     ├── ih_create_test/                ←   generates new tests from a high-level description
@@ -1030,9 +1040,9 @@ sf.set_picklist(picklist_label, value)
 
 **Test fails intermittently on the same step.** Three suspects, in order: network jitter (increase `wait_page_ready(extra_ms=6000)`), background poll racing with your click (call `sf.wait_for_config_update()` or `sf.wait_for_toast(..., settled=True)`), or test data collision (check that `TIMESTAMP` includes the slot/uuid suffix).
 
-**Frontdoor login fails with OAuth CC error.** Your External Client App doesn't have "Enable Client Credentials Flow" turned on, or doesn't have "Relax IP restrictions" set. Fix in Setup → Manage Connected Apps → your app → Edit Policies.
+**Frontdoor login fails.** If the browser lands back on the login/SSO page, the token lacks `web` scope — you are on client-credentials rather than JWT. If the token request itself fails with `user hasn't approved this consumer`, the app is not pre-authorized for the user's profile. Both are covered in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
-**Tests pass locally but fail in GitHub Actions.** GitHub Actions runs from a different IP, so the email-verification page appears. `sf.login()` already handles this via frontdoor bypass — confirm `SF_CLIENT_ID` / `SF_CLIENT_SECRET` are set as repo secrets.
+**Tests pass locally but fail in GitHub Actions.** The runner has an unknown IP, so Salesforce challenges the login. `sf.login()` bypasses this via frontdoor — but that needs a `web`-scoped token, which only JWT bearer issues. Confirm `SF_CLIENT_ID`, `SF_JWT_KEY` and `SF_JWT_USERNAME` are set as repo secrets; client-credentials alone will not work. See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 **Live screencast tile is dim / shows no frames in Firefox or Safari (WebKit).** CDP screencast only works on Chromium-based browsers. The recorded video + per-test HTML report are identical regardless of browser — just the live preview is unavailable. Switch the dashboard's browser dropdown to Chrome or Edge if you need the live feed.
 

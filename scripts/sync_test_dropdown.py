@@ -11,10 +11,10 @@ The generated dropdown starts with the static convenience options:
   - ui-only      (everything under tests/ui)
   - api-only     (everything under tests/api)
 
-…followed by every individual test filename, alphabetically. Filenames
-are listed bare (no ui/ or api/ prefix) because the run-tests.yml
-script step resolves them against both subfolders. The bare-name format
-matches the workflow's existing case statement.
+…followed by every test as a repo-relative path, alphabetically. Paths
+rather than bare filenames: the workflow's resolve step feeds the value
+straight to pytest, and a path is unambiguous when tests/ui and
+tests/api both contain a file of the same name.
 
 Usage:
   python scripts/sync_test_dropdown.py          # from project root
@@ -30,30 +30,34 @@ TESTS_DIR = PROJECT_ROOT / "tests"
 TEST_SUBFOLDERS = ("ui", "api")
 WORKFLOW_FILE = PROJECT_ROOT / ".github" / "workflows" / "run-tests.yml"
 
-# Static options that always appear at the top of the dropdown.
-STATIC_OPTIONS = ["all", "ui-only", "api-only"]
+# Static options that bracket the generated list. These strings must match
+# the case labels in run-tests.yml's "Resolve test selection" step.
+STATIC_OPTIONS = ["All tests", "All UI tests", "All API tests"]
+TRAILING_OPTIONS = ["Custom (fill in custom_target below)"]
 
 
 def get_test_files() -> list[str]:
-    """Return sorted list of test_*.py filenames found under
-    tests/ui/ and tests/api/. Bare filenames — the workflow's case
-    statement looks the file up in both subfolders."""
+    """Return sorted repo-relative paths of every test_*.py under
+    tests/ui/ and tests/api/."""
     seen: list[str] = []
     for sub in TEST_SUBFOLDERS:
         d = TESTS_DIR / sub
         if not d.exists():
             continue
         for f in sorted(d.glob("test_*.py")):
-            if f.name not in seen:
-                seen.append(f.name)
+            rel = f.relative_to(PROJECT_ROOT).as_posix()
+            if rel not in seen:
+                seen.append(rel)
     return sorted(seen)
 
 
 def build_options_block(test_files: list[str], indent: str = "          ") -> str:
     """Build the YAML options block: static options + each test file."""
-    lines = [f"{indent}- {opt}" for opt in STATIC_OPTIONS]
-    for f in test_files:
-        lines.append(f"{indent}- {f}")
+    # Quoted: several options contain spaces and parentheses, which YAML
+    # would otherwise be free to interpret.
+    lines = [f'{indent}- "{opt}"' for opt in STATIC_OPTIONS]
+    lines += [f'{indent}- "{f}"' for f in test_files]
+    lines += [f'{indent}- "{opt}"' for opt in TRAILING_OPTIONS]
     return "\n".join(lines)
 
 
@@ -72,7 +76,7 @@ def update_workflow(check_only: bool = False) -> bool:
     # Match the FIRST options: block under workflow_dispatch > inputs >
     # tests. There may be other options: blocks later in the file
     # (e.g. the workers selector), so we anchor on the first one only.
-    pattern = r"(        options:\n)((?:          - .+\n?)+)"
+    pattern = r"(        options:\n)((?:          - .+\n)+)"
     match = re.search(pattern, content)
 
     if not match:
@@ -83,18 +87,18 @@ def update_workflow(check_only: bool = False) -> bool:
     current_options = match.group(2)
 
     if current_options == new_options:
-        print(f"Dropdown is in sync ({len(STATIC_OPTIONS)} static + {len(test_files)} tests)")
+        print(f"Dropdown is in sync ({len(STATIC_OPTIONS) + len(TRAILING_OPTIONS)} static + {len(test_files)} tests)")
         return False
 
     if check_only:
         print("Dropdown is OUT OF SYNC")
         print(f"  Current:  {[l.strip('- ').strip() for l in current_options.strip().splitlines()]}")
-        print(f"  Expected: {STATIC_OPTIONS + test_files}")
+        print(f"  Expected: {STATIC_OPTIONS + test_files + TRAILING_OPTIONS}")
         return True
 
     updated = content[:match.start(2)] + new_options + content[match.end(2):]
     WORKFLOW_FILE.write_text(updated)
-    print(f"Updated dropdown: {STATIC_OPTIONS + test_files}")
+    print(f"Updated dropdown: {STATIC_OPTIONS + test_files + TRAILING_OPTIONS}")
     return True
 
 
