@@ -92,7 +92,7 @@ The framework ships a `workflow_dispatch` GitHub Actions workflow you can trigge
 
 ### Step-by-step
 
-1. **Push the framework to your repo** (or fork `IdeaHelixHQ/sfauto`).
+1. **Push the framework to your repo** (or fork `<you>/sfauto`).
 2. **Add repository secrets** at `Settings → Secrets and variables → Actions`:
    - `SF_USERNAME` — Salesforce username
    - `SF_PASSWORD` — Salesforce password
@@ -148,7 +148,7 @@ The subject line carries the status pill + pass ratio so triage happens from the
 
 ### Other workflows
 
-- **`cleanup-test-data.yml`** — manual cleanup of stale CCIAUTO-marked records from Salesforce. Inputs: `keep_days`, `dry_run`. Walks Quote → Opportunity → Contact → Account in reverse dependency order.
+- **`cleanup-test-data.yml`** — manual cleanup of stale SFAUTO-marked records from Salesforce. Inputs: `keep_days`, `dry_run`. Walks Quote → Opportunity → Contact → Account in reverse dependency order.
 - **`sync-test-list.yml`** — runs on push to main when any `tests/ui/test_*.py` / `tests/api/test_*.py` / data / definition file changes. Auto-refreshes the `tests` dropdown in `run-tests.yml` so it always reflects the current set of tests. Needs `GH_PAT`.
 
 ---
@@ -485,13 +485,13 @@ sfauto/
 │
 ├── tests/
 │   ├── ui/
-│   │   ├── test_cci_tc1_*.py          ← UI test files (live with their data)
-│   │   ├── test_cci_tc2_*.py
+│   │   ├── test_create_account.py          ← UI test files (live with their data)
+│   │   ├── test_<your_ui_case>.py
 │   │   ├── data/                      ← per-test JSON (addresses, products, etc.)
 │   │   └── goldens/                   ← visual-regression baselines (created on demand)
 │   ├── api/
-│   │   ├── test_cci_tc3_*.py          ← API tests
-│   │   ├── test_cci_tc4_*.py
+│   │   ├── test_account_api.py          ← API tests
+│   │   ├── test_<your_api_case>.py
 │   │   └── data/
 │   ├── draft/                         ← experimental / scratch tests (not run in CI)
 │   └── conftest.py                    ← all framework wiring lives here
@@ -499,7 +499,7 @@ sfauto/
 ├── scripts/
 │   ├── build_combined_run_report.py   ← CI: per-test HTMLs → one offline report
 │   ├── generate_index.py              ← legacy per-test list view for GH Pages
-│   ├── cleanup_test_data.py           ← prunes CCIAUTO-marked records from Salesforce
+│   ├── cleanup_test_data.py           ← prunes SFAUTO-marked records from Salesforce
 │   └── sync_test_dropdown.py          ← keeps CI workflow's test dropdown in sync
 │
 ├── .github/workflows/
@@ -520,7 +520,7 @@ sfauto/
 
 Drive a real headless browser. Cover the full Salesforce Lightning experience — Aura dialogs, LWC forms, shadow-DOM buttons, Vlocity catalog / cart flows, every typeahead. Every step gets a screenshot; the whole session gets a `.webm` video, all base64-embedded into the per-test HTML report.
 
-Live in `tests/ui/test_cci_tc*.py`. Request `tracker`, `sf`, and `page` fixtures. Currently shipped:
+Live in `tests/ui/test_*.py`. Request `tracker`, `sf`, and `page` fixtures. Currently shipped:
 
 - **TC1** — Create Enterprise Quote with DIA (full 22-step flow)
 - **TC2** — Create Enterprise Quote with Fiber Broadband
@@ -529,7 +529,7 @@ Live in `tests/ui/test_cci_tc*.py`. Request `tracker`, `sf`, and `page` fixtures
 
 Hit Salesforce REST + SOAP + Vlocity Integration Procedures directly via the `SFApiClient`. No browser; faster and more deterministic. Same per-step tracker, but the report shows REQ / RES JSON cards instead of screenshots.
 
-Live in `tests/api/test_cci_tc*.py`. Request `api_tracker` and `sf_api` fixtures. Currently shipped:
+Live in `tests/api/test_*.py`. Request `api_tracker` and `sf_api` fixtures. Currently shipped:
 
 - **TC3** — Create Enterprise Quote with DIA (API equivalent of TC1)
 - **TC4** — Create Enterprise Quote with FBB (API equivalent of TC2)
@@ -622,7 +622,7 @@ Browser-specific handling done automatically:
 Every test is two files:
 
 ```
-tests/<ui|api>/test_cci_tcN_<slug>.py    ← Playwright (or REST) code + inline metadata
+tests/<ui|api>/test_<slug>.py    ← Playwright (or REST) code + inline metadata
 tests/<ui|api>/data/tcN_<slug>.json      ← test data (account names, addresses, etc.)
 ```
 
@@ -731,7 +731,7 @@ class TestCreateResidentialQuoteWithVoIP:
 That's the whole pattern. Each `with sf.step(...)` block becomes a row in the HTML report — pass or fail, with a screenshot, automatically.
 
 > [!IMPORTANT]
-> Every test record name **must** include `CCIAUTO` somewhere (e.g. `SFAUTO_Biz_…`, `SFAUTO_Res_…`). The cleanup script identifies test records by this marker.
+> Every test record name **must** include `SFAUTO` somewhere (e.g. `SFAUTO_Biz_…`, `SFAUTO_Res_…`). The cleanup script identifies test records by this marker.
 
 ### The "I want to…" cookbook
 
@@ -774,7 +774,7 @@ If a behaviour is repeated in two tests and there's no helper, **add one to the 
 
 1. **Labels not selectors.** Always reach for `sf.fill(label, value)` before `page.locator(...)`.
 2. **One `sf.step()` per logical action.** Don't lump 5 sub-actions into one step — the report needs each named.
-3. **`CCIAUTO` in every record name.** The cleanup script depends on it.
+3. **`SFAUTO` in every record name.** The cleanup script depends on it.
 4. **Wait after Configure Cart edits.** Vlocity's UI is async; always use `sf.wait_for_config_update()`.
 5. **No hardcoded record ids.** Read them from JSON or capture them at runtime with `sf.extract_record_id()`.
 6. **One assertion per fact, not per step.** Use `sf.assert_("Cart has Bandwidth set", ...)` liberally.

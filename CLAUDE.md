@@ -97,7 +97,7 @@ sfauto/
 ├── scripts/
 │   ├── build_combined_run_report.py    ← CI: per-test HTMLs → one offline run_<id>.html (parses titles for friendly names; writes summary.json)
 │   ├── generate_index.py               ← legacy per-test list view for GH Pages (still callable, not invoked by the workflow anymore)
-│   ├── cleanup_test_data.py            ← deletes CCIAUTO-marked records from Salesforce (--keep-days N --dry-run)
+│   ├── cleanup_test_data.py            ← deletes SFAUTO-marked records from Salesforce (--keep-days N --dry-run)
 │   └── sync_test_dropdown.py           ← auto-syncs the test dropdown in run-tests.yml when test files change
 │
 ├── .github/workflows/
@@ -242,9 +242,9 @@ ACCOUNT_NAME = f"{DATA['account_name_prefix']}{TIMESTAMP}"
 `UI_TEST_SLOT` is set by the dashboard pool. `PYTEST_XDIST_WORKER` is set by
 pytest-xdist in CI. The fallback (no env) is for plain single-process runs.
 
-### CCIAUTO marker
+### SFAUTO marker
 
-Every Salesforce record a test creates MUST have `CCIAUTO` somewhere in its
+Every Salesforce record a test creates MUST have `SFAUTO` somewhere in its
 Name field. `scripts/cleanup_test_data.py` finds + deletes records by this
 marker. Prefixes used: `SFAUTO_Biz_`, `SFAUTO_Quote_`, `SFAUTO_API_`, etc.
 
@@ -334,7 +334,7 @@ sync workflow.
 
 ## 11. Rules (don't break these)
 
-1. **CCIAUTO in every test record name** — cleanup script depends on it.
+1. **SFAUTO in every test record name** — cleanup script depends on it.
 2. **Slot-aware TIMESTAMP** — copy the block verbatim into new tests; never use plain `datetime.now().strftime("%H%M%S")` because parallel workers WILL collide.
 3. **No framework imports in test files** — never `from src.core.step_tracker import StepTracker`. Use the `tracker` + `sf` (or `api_tracker` + `sf_api`) fixtures.
 4. **No raw locators without checking sf_ui first** — `sf.fill(label, value)` before `page.locator(...)`.
@@ -348,7 +348,7 @@ sync workflow.
 
 | Task | Look here |
 |---|---|
-| "Add a new test for X" | Template is in README.md → "Adding a new test (worked example: TC5)". Copy the skeleton, save to `tests/ui/test_cci_tc<N>_<slug>.py` + `tests/ui/data/<slug>.json`. |
+| "Add a new test for X" | Template is in README.md → "Adding a new test (worked example: TC5)". Copy the skeleton, save to `tests/ui/test_<slug>.py` + `tests/ui/data/<slug>.json`. |
 | "Fix this failing test step" | First read the .py file's affected step. If it uses raw `page.locator(...)`, check if `sf.*` has a helper. Use `skills/ih_self_heal_test/SKILL.md` workflow if you have Chrome + Claude in Chrome. |
 | "Add a new sf.* helper" | Implement in the right sf_ui module (`auth`/`navigation`/`forms`/`actions`/`waits`/`cart`), then add an SFHelpers method in `tests/conftest.py` that delegates to it. |
 | "Tweak the dashboard UI" | `src/web/frontend/runner.html` — single file, no build step. Edit + refresh page. |
