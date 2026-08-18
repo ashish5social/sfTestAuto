@@ -1,0 +1,15 @@
+{
+  "run_id": "32151399527",
+  "run_dir": "2026-08-18_32151399527",
+  "date": "2026-08-18",
+  "finished_at": "2026-08-18T20:27:52+05:30",
+  "status": "passed",
+  "passed": 2,
+  "failed": 0,
+  "total": 2,
+  "branch": "main",
+  "commit": "9953aec2",
+  "selection": "All tests",
+  "actor": "ashish5social",
+  "size_mb": 3.57
+}
