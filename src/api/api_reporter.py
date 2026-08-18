@@ -466,3 +466,13 @@ body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-seri
 </html>"""
 
     report_path.write_text(html_doc, encoding="utf-8")
+
+    from src.core.html_reporter import write_report_sidecar
+    write_report_sidecar(
+        report_path,
+        test_name=tracker.test_name,
+        status="passed" if tracker.overall_status == "PASS" else "failed",
+        duration_s=getattr(tracker, "total_duration", None),
+        kind="api",
+        error=getattr(tracker, "failure_error", None),
+    )

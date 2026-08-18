@@ -41,3 +41,6 @@ playwright-report/
 
 # Private keys for JWT bearer auth
 .certs/
+
+# CI report staging (built by scripts/ci_report.py)
+ci_out/

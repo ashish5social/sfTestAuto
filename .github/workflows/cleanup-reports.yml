@@ -1,0 +1,152 @@
+name: Clean up published reports
+
+# Deletes published runs (report HTML with its embedded screenshots and
+# video) from the gh-pages branch.
+#
+# Retention counts TODAY AS DAY 1:
+#   0  delete everything, including today's runs
+#   1  keep today only
+#   2  keep today and yesterday
+#   7  keep today and the previous six days
+#
+# "Today" is the org's local date from the active profile, not the
+# runner's UTC date — otherwise a run made this evening IST would look
+# like yesterday to a UTC runner and get deleted.
+on:
+  workflow_dispatch:
+    inputs:
+      keep_days:
+        description: "Days of runs to keep (today = day 1; 0 wipes everything)"
+        required: true
+        default: "7"
+      dry_run:
+        description: "List what would be deleted without deleting it"
+        type: boolean
+        required: true
+        default: true
+      purge_artifacts:
+        description: "Also delete workflow artifacts older than the same window"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sfauto-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      SFAUTO_PROFILE: ${{ vars.SFAUTO_PROFILE || 'default' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Validate input
+        run: |
+          case "${{ inputs.keep_days }}" in
+            ''|*[!0-9]*)
+              echo "::error::keep_days must be a non-negative whole number."
+              exit 1 ;;
+          esac
+          if [ "${{ inputs.keep_days }}" = "0" ] && [ "${{ inputs.dry_run }}" != "true" ]; then
+            echo "::warning::keep_days=0 — every published run will be deleted."
+          fi
+
+      - name: Prune gh-pages
+        id: prune
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          if ! git ls-remote --exit-code --heads "$REMOTE" gh-pages >/dev/null 2>&1; then
+            echo "No gh-pages branch — nothing to clean."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SITE=$(mktemp -d)
+          git clone --depth 1 --branch gh-pages "$REMOTE" "$SITE"
+
+          DRY=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
+
+          python scripts/gh_pages_prune.py "$SITE" \
+            --keep-days "${{ inputs.keep_days }}" $DRY | tee prune.log
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "Dry run — nothing pushed."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Rebuild the index so it stops listing runs that are now gone.
+          python scripts/gh_pages_index.py "$SITE"
+
+          git -C "$SITE" config user.name  "github-actions[bot]"
+          git -C "$SITE" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$SITE" add -A
+          if git -C "$SITE" diff --cached --quiet; then
+            echo "Nothing to delete."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git -C "$SITE" commit -m "Prune runs (keep_days=${{ inputs.keep_days }})"
+            git -C "$SITE" push origin gh-pages
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Purge old workflow artifacts
+        if: inputs.purge_artifacts && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          KEEP=${{ inputs.keep_days }}
+          # Same "today is day 1" rule: keep_days=1 keeps only artifacts
+          # created today, so the cutoff is (KEEP - 1) days back.
+          if [ "$KEEP" -eq 0 ]; then
+            CUTOFF=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          else
+            CUTOFF=$(date -u -d "$((KEEP - 1)) days ago 00:00:00" +%Y-%m-%dT%H:%M:%SZ)
+          fi
+          echo "Deleting artifacts created before $CUTOFF"
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts" \
+            --jq ".artifacts[] | select(.created_at < \"$CUTOFF\") | .id" \
+          | while read -r id; do
+              echo "  deleting artifact $id"
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" || true
+            done
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Cleanup — keep_days=${{ inputs.keep_days }}"
+            echo ""
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "**Dry run** — nothing was deleted."
+            fi
+            echo ""
+            echo '```'
+            cat prune.log 2>/dev/null || echo "no gh-pages branch"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

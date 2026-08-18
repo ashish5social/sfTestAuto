@@ -48,12 +48,26 @@ class Config:
 
     @classmethod
     def validate(cls) -> list[str]:
-        """Return list of missing required config values."""
+        """Return list of missing required config values.
+
+        A password is only required when there is no better credential.
+        JWT bearer authenticates with a private key and needs no password
+        at all — demanding one would force CI to store a secret it never
+        uses.
+        """
         errors = []
         if not cls.SF_USERNAME:
             errors.append("SF_USERNAME is not set")
-        if not cls.SF_PASSWORD:
-            errors.append("SF_PASSWORD is not set")
+
+        has_jwt = bool(os.getenv("SF_JWT_KEY_FILE", "").strip()
+                       and os.getenv("SF_CLIENT_ID", "").strip())
+        has_client_creds = bool(os.getenv("SF_CLIENT_ID", "").strip()
+                                and os.getenv("SF_CLIENT_SECRET", "").strip())
+        if not (cls.SF_PASSWORD or has_jwt or has_client_creds):
+            errors.append(
+                "no usable credential — set SF_PASSWORD, or SF_JWT_KEY_FILE "
+                "+ SF_CLIENT_ID (see docs/AUTHENTICATION.md)"
+            )
         return errors
 
     @classmethod

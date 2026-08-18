@@ -11,6 +11,7 @@ Reports are fully self-contained (base64-encoded media) so they can
 be opened from anywhere without a server.
 """
 
+import json
 import os
 import base64
 from datetime import datetime
@@ -91,6 +92,37 @@ def _video_to_base64(path: str) -> str:
         return f"data:video/webm;base64,{data}"
     except Exception:
         return ""
+
+
+def write_report_sidecar(
+    report_path: Path,
+    *,
+    test_name: str,
+    status: str,
+    duration_s: float | None,
+    kind: str,
+    error: str | None = None,
+) -> Path:
+    """Write ``<report>.json`` describing the report next to it.
+
+    Anything that wants to assemble or summarise a run — CI, the
+    combined report, an email job — otherwise has to scrape status back
+    out of the rendered HTML, which breaks the moment the markup
+    changes. The reporter already knows all of this at write time, so it
+    records it once, authoritatively.
+    """
+    meta = {
+        "test_name": test_name,
+        "status": (status or "").lower(),
+        "duration_s": duration_s,
+        "kind": kind,
+        "error": error,
+        "report": report_path.name,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    side = report_path.with_suffix(".json")
+    side.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    return side
 
 
 def generate_html_report(
@@ -410,3 +442,12 @@ body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-seri
 
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(html)
+
+    write_report_sidecar(
+        report_path,
+        test_name=tracker.test_name,
+        status="passed" if tracker.overall_status == "PASS" else "failed",
+        duration_s=getattr(tracker, "total_duration", None),
+        kind="ui",
+        error=getattr(tracker, "failure_error", None),
+    )
