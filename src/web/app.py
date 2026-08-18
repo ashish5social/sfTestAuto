@@ -79,6 +79,12 @@ app.mount("/screenshots", StaticFiles(directory=str(config.SCREENSHOTS_DIR)), na
 config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/reports", StaticFiles(directory=str(config.REPORTS_DIR)), name="reports")
 
+# Brand assets (logo / favicon). Served locally so the dashboard never
+# hot-links an external CDN.
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
 
 @app.get("/")
 async def index():
