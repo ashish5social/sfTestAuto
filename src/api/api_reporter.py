@@ -20,6 +20,10 @@ import html
 import json
 import os
 from datetime import datetime
+
+from src.core.branding import (
+    BRAND_CSS, BRAND_TAGLINE, brand_block,
+)
 from pathlib import Path
 
 from src.api.api_tracker import APICall, APITracker
@@ -267,7 +271,7 @@ def generate_api_report(
     # Build lookups of records so that any Test-Data value matching a
     # created record's Name becomes a clickable link straight into
     # Salesforce. Two overlapping lookups handle the common ambiguity
-    # where Account.Name == Opportunity.Name (both prefixed "CCIAUTO_API_"
+    # where Account.Name == Opportunity.Name (both prefixed "SFAUTO_API_"
     # with the same timestamp):
     #   - ``scoped_urls[(label, name)]`` — exact match when we can infer
     #     the target object from the Test-Data field name (e.g.
@@ -344,9 +348,8 @@ def generate_api_report(
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f5f7fa; color:#333; padding:24px; }}
 
+{BRAND_CSS}
 .brand-strip {{ display:flex; align-items:center; gap:14px; padding:12px 20px; background:white; border-radius:12px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }}
-.brand-strip img.logo-ih {{ height:32px; width:auto; display:block; }}
-.brand-strip img.logo-fidium {{ height:32px; width:auto; display:block; }}
 .brand-strip .brand-divider {{ width:1px; height:24px; background:#e5e7eb; align-self:center; }}
 .brand-strip .brand-label {{ font-size:13px; font-weight:600; color:#6b7280; letter-spacing:.3px; line-height:1; }}
 
@@ -429,10 +432,9 @@ body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-seri
 <body>
 
 <div class="brand-strip">
-  <img class="logo-ih" src="https://ideahelix.com/wp-content/uploads/2025/07/haeder_logo.svg" alt="ideaHelix" />
-  <img class="logo-fidium" src="https://d191tlbtp8692k.cloudfront.net/prod/fcom/global/Logo-Header-76x36.svg" alt="Fidium Fiber" />
+    {brand_block("a")}
   <div class="brand-divider"></div>
-  <span class="brand-label">Salesforce Communication Cloud — API Test (Python + REST / IP)</span>
+  <span class="brand-label">API Test Report</span>
 </div>
 
 <div class="report-header">
@@ -458,7 +460,7 @@ body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-seri
 <h2 class="steps-title">Test Steps — API Calls</h2>
 {step_rows}
 
-<div class="footer">CCI Test Automation — API Layer | ideaHelix | Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+<div class="footer">sfauto — API Layer | sfauto | Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
 
 </body>
 </html>"""

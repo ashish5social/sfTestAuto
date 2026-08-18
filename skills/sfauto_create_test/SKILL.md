@@ -1,8 +1,8 @@
 ---
-name: ih_create_test
+name: sfauto_create_test
 description: >
   Generate a production-ready Playwright test script (.py) and JSON test data file
-  for the CCI Test Automation tool by actually navigating a live Salesforce Revenue Cloud org in a
+  for the sfauto tool by actually navigating a live Salesforce Revenue Cloud org in a
   browser. Use this skill whenever the user wants to create a new test, convert manual test steps to
   automation, generate a Playwright script for Salesforce, add a test case, or mentions test
   creation, test generation, or "new test" in any form. Also trigger when the user provides a list
@@ -11,11 +11,11 @@ description: >
   Price Books, Assets, and any Lightning UI workflow.
 ---
 
-# ih_create_test — Salesforce Playwright Test Generator
+# sfauto_create_test — Salesforce Playwright Test Generator
 
 ## Overview
 
-This skill generates a complete, production-ready test for the CCI Test Automation tool.
+This skill generates a complete, production-ready test for the sfauto tool.
 It doesn't just write code — it **validates every locator in a live browser** and then runs the test,
 self-correcting failures up to 3 times.
 
@@ -43,7 +43,7 @@ Before starting any work, tell the user:
 ```
 Here's what I'll do to create your test:
 
-1. GATHER INFO        — I'll ask you for the cci project folder location, whether
+1. GATHER INFO        — I'll ask you for the sfauto project folder location, whether
                         this is a UI or API test, Salesforce credentials, and
                         clarify any vague test steps.
 2. PRESENT PLAN       — I'll show you the numbered test steps I'll automate and get
@@ -54,7 +54,7 @@ Here's what I'll do to create your test:
                         action I'll pick the right sf_ui helper (sf.fill, sf.click,
                         sf.fill_lookup, etc.) instead of raw locators.
 4. GENERATE FILES     — I'll create 2 files (.py + data .json) directly in the
-                        cci project so the web dashboard picks them up immediately.
+                        sfauto project so the web dashboard picks them up immediately.
                         NO YAML — metadata (name, tags, objective) lives as class
                         attributes in the .py.
 5. BROWSER VALIDATE   — I'll re-run every locator from the generated test script in
@@ -74,10 +74,10 @@ Wait for confirmation before starting.
 
 ## Phase 1: Gather Requirements
 
-### Step 1: Get the cci project folder location
+### Step 1: Get the sfauto project folder location
 
 Ask the user:
-> Where is your cci project folder? (e.g., `/Users/yourname/ih_cci_test_automation`)
+> Where is your sfauto project folder? (e.g., `/Users/yourname/ih_cci_test_automation`)
 
 This is CRITICAL because the 2 output files must go directly into:
 - `<cci_folder>/tests/ui/test_cci_tc<N>_<slug>.py` — UI test (with the `page` + `tracker` + `sf` fixtures)
@@ -296,7 +296,7 @@ Step N:
 
 ## Phase 3: Generate Output Files (Directly in Project Folders)
 
-After successfully navigating all steps, generate three files **directly in the cci project**.
+After successfully navigating all steps, generate three files **directly in the sfauto project**.
 
 ### IMPORTANT: File Locations
 
@@ -417,7 +417,7 @@ class Test<PascalCaseName>:
 - ALWAYS `sf.wait_page_ready()` (or `sf.wait_for_config_update()` on Configure Cart edits) after navigations
 - Class docstring's first line = display name in dashboard + report
 - `TAGS = [...]` and `OBJECTIVE = "..."` class attrs surface in the dashboard's info-icon popup
-- Test record names MUST include "CCIAUTO" (e.g. `CCIAUTO_Biz_{TIMESTAMP}`)
+- Test record names MUST include "CCIAUTO" (e.g. `SFAUTO_Biz_{TIMESTAMP}`)
 
 ### API test template
 
@@ -645,8 +645,8 @@ Test result: PASSED on attempt <N>/3
 
 You can:
   - Refresh the web dashboard to see the new test
-  - Run it again: cci test tests/<ui|api>/test_cci_tc<N>_<slug>.py
-  - Run headless: cci test tests/<ui|api>/test_cci_tc<N>_<slug>.py --headless
+  - Run it again: sfauto test tests/<ui|api>/test_cci_tc<N>_<slug>.py
+  - Run headless: sfauto test tests/<ui|api>/test_cci_tc<N>_<slug>.py --headless
   - Edit tests/<ui|api>/data/tc<N>_<slug>.json to change test data values
 ```
 
@@ -865,7 +865,7 @@ Salesforce generates random IDs for many elements. Never use them as locators:
 
 Before generating files, verify:
 
-- [ ] You have the cci project folder path (CCI_ROOT)
+- [ ] You have the sfauto project folder path (CCI_ROOT)
 - [ ] You have confirmed Salesforce credentials
 - [ ] You have walked through EVERY test step in the browser
 - [ ] You have recorded primary + fallback locators for each step
@@ -893,7 +893,7 @@ Before telling the user the test is done, verify:
 
 ## Reference: Existing Test Examples
 
-Before generating, READ these files from the CCI project to see working examples:
+Before generating, READ these files from the Salesforce project to see working examples:
 - `tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py` — canonical 22-step UI test (account → opportunity → enterprise quote → DIA product → submit). BEST REFERENCE for UI tests.
 - `tests/ui/test_cci_tc2_create_enterprise_quote_with_fbb.py` — same flow with Fiber Broadband (standalone product, no router child). BEST REFERENCE for product variations.
 - `tests/api/test_cci_tc3_create_enterprise_quote_with_dia_api.py` — API twin of TC1: REST + Vlocity IP calls + Working-Cart flow. BEST REFERENCE for API tests.

@@ -1,4 +1,4 @@
-"""FastAPI web application for the CCI Test Runner Dashboard."""
+"""FastAPI web application for the sfauto Test Runner."""
 
 import logging
 import uvicorn
@@ -51,8 +51,8 @@ class _DropScreencastNoise(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(_DropScreencastNoise())
 
 app = FastAPI(
-    title="CCI Test Automation",
-    description="UI Test Automation for Salesforce Revenue Cloud",
+    title="sfauto",
+    description="UI & API test automation for any Salesforce org",
     version="0.2.0",
 )
 
@@ -70,7 +70,7 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Serve screenshots — always create + mount so the post-run video player
-# (which requests /screenshots/Test_CCI_UI_*/recording_*.webm) works on a
+# (which requests /screenshots/Test_UI_*/recording_*.webm) works on a
 # fresh clone before any tests have produced output.
 config.SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/screenshots", StaticFiles(directory=str(config.SCREENSHOTS_DIR)), name="screenshots")
@@ -110,7 +110,7 @@ def start():
     """Start the dashboard server."""
     config.ensure_dirs()
     print(f"\n{'='*60}")
-    print(f"  CCI Test Runner Dashboard")
+    print(f"  sfauto Test Runner")
     print(f"  http://{config.DASHBOARD_HOST}:{config.DASHBOARD_PORT}")
     print(f"{'='*60}\n")
     uvicorn.run(

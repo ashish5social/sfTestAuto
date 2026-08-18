@@ -1,5 +1,5 @@
 # ============================================================
-#  CCI Test Automation – Installer for Windows
+#  sfauto – Installer for Windows
 #  Run:  powershell -ExecutionPolicy Bypass -File install.ps1
 # ============================================================
 
@@ -14,7 +14,7 @@ function Write-Fail($msg)  { Write-Host "[FAIL] $msg" -ForegroundColor Red }
 
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Cyan
-Write-Host "  CCI Test Automation - Installer (Windows)"    -ForegroundColor Cyan
+Write-Host "  sfauto - Installer (Windows)"    -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -173,8 +173,8 @@ Write-Host "  2. Activate the virtual environment:"
 Write-Host "       .\venv\Scripts\Activate.ps1"
 Write-Host ""
 Write-Host "Usage:"
-Write-Host "  Run a single test (headed):    cci test tests\generated\test_new_account_mobile_order_youth_direct.py"
-Write-Host "  Run a single test (headless):  cci test tests\generated\test_new_account_mobile_order_youth_direct.py --headless"
-Write-Host "  Run all tests:                 cci test tests\generated\"
-Write-Host "  Start web dashboard:           cci server"
+Write-Host "  Run a single test (headed):    sfauto test tests\generated\test_new_account_mobile_order_youth_direct.py"
+Write-Host "  Run a single test (headless):  sfauto test tests\generated\test_new_account_mobile_order_youth_direct.py --headless"
+Write-Host "  Run all tests:                 sfauto test tests\generated\"
+Write-Host "  Start web dashboard:           sfauto server"
 Write-Host ""

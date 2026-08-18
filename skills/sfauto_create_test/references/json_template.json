@@ -1,8 +1,8 @@
 {
-  "_comment": "Test data template — copy to tests/{ui,api}/data/tc<N>_<slug>.json. Use real CCIAUTO prefixes (e.g. CCIAUTO_Biz_, CCIAUTO_API_) so the cleanup script can find these records. See tests/ui/data/tc1_create_enterprise_quote_with_dia.json for the canonical example.",
+  "_comment": "Test data template — copy to tests/{ui,api}/data/tc<N>_<slug>.json. Use real CCIAUTO prefixes (e.g. SFAUTO_Biz_, SFAUTO_API_) so the cleanup script can find these records. See tests/ui/data/tc1_create_enterprise_quote_with_dia.json for the canonical example.",
 
   "record_type": "{{Business|Residential|...}}",
-  "account_name_prefix": "CCIAUTO_{{Biz|Res|API}}_",
+  "account_name_prefix": "SFAUTO_{{Biz|Res|API}}_",
 
   "addresses": [
     {
@@ -20,16 +20,16 @@
   },
 
   "opportunity": {
-    "name_prefix": "CCIAUTO_Opp_",
+    "name_prefix": "SFAUTO_Opp_",
     "stage": "{{Generate Interest}}",
     "close_date_offset_days": 30
   },
 
   "quote": {
-    "quote_name_prefix": "CCIAUTO_Quote_",
+    "quote_name_prefix": "SFAUTO_Quote_",
     "create_button_name": "{{Create Enterprise Quote}}",
     "service_term_months": 12,
-    "price_list": "{{CCI Commercial Pricing List}}"
+    "price_list": "{{Salesforce Commercial Pricing List}}"
   },
 
   "timeout_ms": 60000,

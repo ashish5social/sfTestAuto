@@ -91,7 +91,7 @@ class SFApiClient:
 
         # ── Method 2: SOAP (username + password + security_token) ──
         # Two-step login sidesteps simple-salesforce's mangled sf_instance
-        # for sandboxes with double-dash My-Domain hosts (fidium--test1...).
+        # for sandboxes with double-dash My-Domain hosts (myorg--dev...).
         # Same pattern as scripts/cleanup_test_data.py.
         try:
             from urllib.parse import urlparse
@@ -163,7 +163,7 @@ class SFApiClient:
             return
         except Exception:
             pass
-        # Last resort — default to vlocity_cmt since that's most common in CCI
+        # Last resort — default to vlocity_cmt since that's most common in Salesforce
         self._namespace = "vlocity_cmt"
 
     # ── Accessors ────────────────────────────────────────────

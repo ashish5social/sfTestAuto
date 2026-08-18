@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  CCI Test Automation – Create Installable Package
+#  sfauto – Create Installable Package
 #
 #  Run on developer laptop to create a distributable zip file.
 #  The zip can be scp'd to a VPS and installed with ./install.sh
@@ -8,7 +8,7 @@
 #  Usage:  chmod +x create_installable_package.sh
 #          ./create_installable_package.sh
 #
-#  Output: cci_DDMMYY_HHMM.zip  (in the current directory)
+#  Output: sfauto_DDMMYY_HHMM.zip  (in the current directory)
 # ============================================================
 
 set -e
@@ -26,14 +26,14 @@ fail() { echo -e "${RED}✖ $1${NC}"; exit 1; }
 # 1. Determine package name with timestamp
 # --------------------------------------------------
 TIMESTAMP=$(date +"%d%m%y_%H%M")
-PKG_NAME="cci_${TIMESTAMP}"
+PKG_NAME="sfauto_${TIMESTAMP}"
 PKG_DIR="${PKG_NAME}"
 ZIP_FILE="${PKG_NAME}.zip"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo ""
 echo "=============================================="
-echo "  CCI – Creating Installable Package"
+echo "  Salesforce – Creating Installable Package"
 echo "  Package: ${ZIP_FILE}"
 echo "=============================================="
 echo ""
@@ -49,9 +49,9 @@ if [ -f "$ZIP_FILE" ]; then
     fail "File ${ZIP_FILE} already exists. Remove it first or wait a minute."
 fi
 
-# Verify we're in the cci project root
+# Verify we're in the sfauto project root
 if [ ! -f "${SCRIPT_DIR}/pyproject.toml" ]; then
-    fail "pyproject.toml not found. Run this script from the cci project root."
+    fail "pyproject.toml not found. Run this script from the sfauto project root."
 fi
 
 # --------------------------------------------------

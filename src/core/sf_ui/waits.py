@@ -14,7 +14,7 @@ Common gotchas the helpers cover:
   - Multiple spinner selectors coexist (`div.slds-spinner_container`,
     `lightning-spinner`, `vlc-slds-spinner`, `[role='progressbar']`).
     All must be checked before declaring the page settled.
-  - Vlocity CCI Configure Cart shows a blue "Updating X" toast that
+  - Vlocity Configure Cart shows a blue "Updating X" toast that
     transitions to a green "Updated X" toast. Both can render *and
     disappear* fast enough that a naive `wait_for_selector(state=hidden)`
     misses them. Poll the visibility every ~500-1000ms instead.

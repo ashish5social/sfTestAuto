@@ -14,6 +14,10 @@ be opened from anywhere without a server.
 import os
 import base64
 from datetime import datetime
+
+from src.core.branding import (
+    BRAND_CSS, BRAND_TAGLINE, brand_block,
+)
 from pathlib import Path
 
 from src.core.step_tracker import StepTracker
@@ -23,7 +27,7 @@ def _resolve_org_name() -> str:
     """Derive the SF org (My Domain) name from the SF_LOGIN_URL env var.
 
     Examples:
-      https://fidium--apitest1.sandbox.my.salesforce.com  ->  fidium--apitest1
+      https://myorg--dev.sandbox.my.salesforce.com  ->  myorg--dev
       https://acme.my.salesforce.com                      ->  acme
       https://test.salesforce.com                         ->  test.salesforce.com
 
@@ -285,9 +289,8 @@ def generate_html_report(
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f5f7fa; color:#333; padding:24px; }}
 
+{BRAND_CSS}
 .brand-strip {{ display:flex; align-items:center; gap:14px; padding:12px 20px; background:white; border-radius:12px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }}
-.brand-strip img.logo-ih {{ height:32px; width:auto; display:block; }}
-.brand-strip img.logo-fidium {{ height:32px; width:auto; display:block; }}
 .brand-strip .brand-divider {{ width:1px; height:24px; background:#e5e7eb; align-self:center; }}
 .brand-strip .brand-label {{ font-size:13px; font-weight:600; color:#6b7280; letter-spacing:.3px; line-height:1; }}
 
@@ -369,16 +372,15 @@ body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-seri
 <body>
 
 <div class="brand-strip">
-    <img class="logo-ih" src="https://ideahelix.com/wp-content/uploads/2025/07/haeder_logo.svg" alt="ideaHelix" />
-    <img class="logo-fidium" src="https://d191tlbtp8692k.cloudfront.net/prod/fcom/global/Logo-Header-76x36.svg" alt="Fidium Fiber" />
+    {brand_block("r")}
     <div class="brand-divider"></div>
-    <span class="brand-label">Salesforce Communication Cloud — Python + Playwright Tests</span>
+    <span class="brand-label">UI Test Report</span>
 </div>
 
 <div class="report-header">
     <h1>{tracker.test_name}</h1>
     <div class="subtitle">
-        CCI Salesforce Test Report &nbsp;|&nbsp;
+        Salesforce Test Report &nbsp;|&nbsp;
         {tracker.start_time.strftime('%B %d, %Y at %I:%M:%S %p')} &nbsp;|&nbsp;
         Org: {_resolve_org_name()}
     </div>
@@ -401,7 +403,7 @@ body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-seri
 <h2 class="steps-title">Test Steps</h2>
 {step_rows}
 
-<div class="footer">CCI Test Automation | ideaHelix | Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+<div class="footer">sfauto | sfauto | Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
 
 </body>
 </html>'''

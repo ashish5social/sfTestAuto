@@ -344,7 +344,7 @@ class ParallelRunner:
         before grabbing its first test. The default of 10s spreads out
         the initial Salesforce login / OAuth burst across workers and
         prevents 4 simultaneous identical timestamps from generating
-        the same CCIAUTO_Biz_<ts> account name. Set the env var to 0
+        the same SFAUTO_Biz_<ts> account name. Set the env var to 0
         to disable the stagger (CI typically doesn't need it because
         xdist already handles ordering)."""
         stagger_sec = float(os.environ.get("PARALLEL_START_STAGGER_SEC", "10") or 0)

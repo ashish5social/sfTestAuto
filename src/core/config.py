@@ -1,4 +1,4 @@
-"""Configuration management for CCI Test Automation."""
+"""Configuration management for sfauto."""
 
 import os
 from pathlib import Path
@@ -35,7 +35,7 @@ class Config:
     API_TESTS_DIR: Path = PROJECT_ROOT / "tests" / "api"
     REPORTS_DIR: Path = PROJECT_ROOT / "reports"
     SCREENSHOTS_DIR: Path = PROJECT_ROOT / "screenshots"
-    DB_PATH: Path = PROJECT_ROOT / "cci_runs.db"
+    DB_PATH: Path = PROJECT_ROOT / "sfauto_runs.db"
 
     @classmethod
     def validate(cls) -> list[str]:

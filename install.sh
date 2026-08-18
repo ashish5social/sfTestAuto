@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  CCI Test Automation – Installer
+#  sfauto – Installer
 #
 #  Auto-detects environment:
 #    Developer (has .git)  → editable install, localhost instructions
@@ -30,8 +30,8 @@ header()  { echo -e "\n${CYAN}${BOLD}── $1${NC}"; }
 REQUIRED_PYTHON_MAJOR=3
 REQUIRED_PYTHON_MINOR=11
 
-CCI_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$CCI_DIR"
+SFAUTO_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SFAUTO_DIR"
 
 # --------------------------------------------------
 # Detect mode
@@ -44,23 +44,23 @@ fi
 
 echo ""
 echo "=============================================="
-echo "  CCI Test Automation – Installer"
+echo "  sfauto – Installer"
 echo "=============================================="
 if [ "$MODE" = "developer" ]; then
     echo "  Mode:     Developer  (git repo detected)"
 else
     echo "  Mode:     Server/VPS (package deployment)"
 fi
-echo "  Location: ${CCI_DIR}"
+echo "  Location: ${SFAUTO_DIR}"
 echo "=============================================="
 
 # ==================================================================
-# SERVER MODE: Stop running CCI processes and preserve .env
+# SERVER MODE: Stop running Salesforce processes and preserve .env
 # ==================================================================
 if [ "$MODE" = "server" ]; then
-    header "Stopping previous CCI processes"
+    header "Stopping previous Salesforce processes"
 
-    # Kill uvicorn processes running cci web app
+    # Kill uvicorn processes running the sfauto web app
     CCI_PIDS=$(ps aux 2>/dev/null | grep -E "uvicorn.*src\.web\.app" | grep -v grep | awk '{print $2}' || true)
     if [ -n "$CCI_PIDS" ]; then
         echo "$CCI_PIDS" | xargs kill -TERM 2>/dev/null || true
@@ -69,9 +69,9 @@ if [ "$MODE" = "server" ]; then
         if [ -n "$REMAINING" ]; then
             echo "$REMAINING" | xargs kill -9 2>/dev/null || true
         fi
-        ok "Stopped running CCI web dashboard"
+        ok "Stopped running Salesforce web dashboard"
     else
-        ok "No running CCI web dashboard found"
+        ok "No running Salesforce web dashboard found"
     fi
 
     # Kill stuck pytest
@@ -82,10 +82,10 @@ if [ "$MODE" = "server" ]; then
     fi
 
     # Preserve .env from previous install
-    if [ ! -f "${CCI_DIR}/.env" ]; then
+    if [ ! -f "${SFAUTO_DIR}/.env" ]; then
         header "Looking for previous .env"
         PREV_ENV=""
-        for candidate in "${HOME}/cci/.env" $(ls -dt ${HOME}/cci_*/.env 2>/dev/null | head -1); do
+        for candidate in "${HOME}/sfauto/.env" $(ls -dt ${HOME}/sfauto_*/.env 2>/dev/null | head -1); do
             if [ -f "$candidate" ] 2>/dev/null; then
                 PREV_ENV="$candidate"
                 break
@@ -93,7 +93,7 @@ if [ "$MODE" = "server" ]; then
         done
 
         if [ -n "$PREV_ENV" ]; then
-            cp "$PREV_ENV" "${CCI_DIR}/.env"
+            cp "$PREV_ENV" "${SFAUTO_DIR}/.env"
             ok "Copied .env from previous installation (${PREV_ENV})"
         fi
     fi
@@ -284,22 +284,22 @@ mkdir -p tests/generated tests/data tests/definitions reports screenshots videos
 ok "Required directories verified"
 
 # ==================================================================
-# SERVER MODE: Create ~/cci symlink
+# SERVER MODE: Create ~/sfauto symlink
 # ==================================================================
 if [ "$MODE" = "server" ]; then
     header "Server setup"
-    SYMLINK="${HOME}/cci"
+    SYMLINK="${HOME}/sfauto"
 
     if [ -L "$SYMLINK" ]; then
         rm "$SYMLINK"
-        ln -s "$CCI_DIR" "$SYMLINK"
-        ok "Updated symlink: ~/cci -> ${CCI_DIR}"
-    elif [ -d "$SYMLINK" ] && [ "$(readlink -f "$SYMLINK" 2>/dev/null || echo "$SYMLINK")" != "$CCI_DIR" ]; then
-        warn "~/cci is an existing directory (old installation)"
-        warn "Consider: rm -rf ~/cci && re-run this installer"
+        ln -s "$SFAUTO_DIR" "$SYMLINK"
+        ok "Updated symlink: ~/sfauto -> ${SFAUTO_DIR}"
+    elif [ -d "$SYMLINK" ] && [ "$(readlink -f "$SYMLINK" 2>/dev/null || echo "$SYMLINK")" != "$SFAUTO_DIR" ]; then
+        warn "~/sfauto is an existing directory (old installation)"
+        warn "Consider: rm -rf ~/sfauto && re-run this installer"
     elif [ ! -e "$SYMLINK" ]; then
-        ln -s "$CCI_DIR" "$SYMLINK"
-        ok "Created symlink: ~/cci -> ${CCI_DIR}"
+        ln -s "$SFAUTO_DIR" "$SYMLINK"
+        ok "Created symlink: ~/sfauto -> ${SFAUTO_DIR}"
     fi
 fi
 
@@ -325,34 +325,34 @@ if [ "$MODE" = "developer" ]; then
     echo "       source venv/bin/activate"
     echo ""
     echo -e "  ${CYAN}${BOLD}Start the web dashboard (localhost):${NC}"
-    echo "       cci server"
+    echo "       sfauto server"
     echo "       # Open http://localhost:8091"
     echo ""
     echo -e "  ${CYAN}${BOLD}Run a test:${NC}"
-    echo "       cci test tests/generated/test_create_business_account.py"
-    echo "       cci test tests/generated/test_create_business_account.py --headless"
+    echo "       sfauto test tests/generated/test_create_business_account.py"
+    echo "       sfauto test tests/generated/test_create_business_account.py --headless"
     echo ""
 else
     echo ""
-    echo "  Installed at: ${CCI_DIR}"
-    if [ -L "${HOME}/cci" ]; then
-        echo "  Symlink:      ~/cci"
+    echo "  Installed at: ${SFAUTO_DIR}"
+    if [ -L "${HOME}/sfauto" ]; then
+        echo "  Symlink:      ~/sfauto"
     fi
     echo ""
     echo -e "  ${CYAN}${BOLD}Next steps:${NC}"
     echo ""
     echo "  1. Configure credentials (if not already done):"
-    echo "       nano ${CCI_DIR}/.env"
+    echo "       nano ${SFAUTO_DIR}/.env"
     echo ""
     echo "  2. Activate the virtual environment:"
-    echo "       cd ${CCI_DIR} && source venv/bin/activate"
+    echo "       cd ${SFAUTO_DIR} && source venv/bin/activate"
     echo ""
     echo -e "  ${CYAN}${BOLD}Start the server (foreground):${NC}"
-    echo "       cci server"
+    echo "       sfauto server"
     echo "       # Access from browser: http://<your-vps-ip>:8091"
     echo ""
     echo -e "  ${CYAN}${BOLD}Start the server (background, survives SSH disconnect):${NC}"
-    echo "       nohup cci server > server.log 2>&1 &"
+    echo "       nohup sfauto server > server.log 2>&1 &"
     echo "       # Logs:  tail -f server.log"
     echo "       # Access: http://<your-vps-ip>:8091"
     echo ""
@@ -360,6 +360,6 @@ else
     echo "       pkill -f 'uvicorn.*src.web.app'"
     echo ""
     echo -e "  ${CYAN}${BOLD}Run a test:${NC}"
-    echo "       cci test tests/generated/test_create_business_account.py --headless"
+    echo "       sfauto test tests/generated/test_create_business_account.py --headless"
     echo ""
 fi

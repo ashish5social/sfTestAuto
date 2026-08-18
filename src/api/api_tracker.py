@@ -115,7 +115,7 @@ class APITracker:
           - Each body is rendered as compact JSON, capped at ~700 chars.
           - Synthetic INFO entries (auth/discovery summaries with
             method='INFO' or no real bodies) get the one-liner only.
-          - Set CCI_API_LOG_FULL=1 to disable truncation entirely.
+          - Set SFAUTO_API_LOG_FULL=1 to disable truncation entirely.
         """
         if not self.steps:
             return
@@ -131,7 +131,7 @@ class APITracker:
         if call.method == "INFO":
             return
 
-        full = os.getenv("CCI_API_LOG_FULL", "").lower() in ("1", "true", "yes")
+        full = os.getenv("SFAUTO_API_LOG_FULL", "").lower() in ("1", "true", "yes")
         cap = None if full else 700
 
         def _fmt(prefix: str, body: Any) -> None:

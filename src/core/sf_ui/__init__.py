@@ -2,7 +2,7 @@
 sf_ui — Salesforce UI test helper library.
 
 This package collects the reusable building blocks for browser-driven
-tests against a Salesforce Lightning / Vlocity CCI org. Test files
+tests against a Salesforce Lightning / Vlocity org. Test files
 should import from here rather than reimplementing locator strategies,
 wait logic, shadow-DOM traversal, etc.
 
@@ -25,7 +25,7 @@ Quick start (inside a test, with the `sf` fixture from conftest):
         login_with_frontdoor_fallback(page, ...)
 
     with sf.step(2, "Create account"):
-        fill_field_by_label(page, "Account Name", "CCIAUTO_Biz_001")
+        fill_field_by_label(page, "Account Name", "SFAUTO_Biz_001")
         sf.click_button("Save")
 
 Heavy docstrings live on each function — read those before reaching for

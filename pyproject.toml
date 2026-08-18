@@ -1,7 +1,7 @@
 [project]
-name = "cci-test-automation"
+name = "sfauto"
 version = "0.1.0"
-description = "UI Test Automation for Salesforce CCI Sandbox"
+description = "UI Test Automation for Salesforce a Salesforce sandbox"
 requires-python = ">=3.11"
 dependencies = [
     "playwright>=1.49.0",
@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cci = "src.cli:main"
+sfauto = "src.cli:main"
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]

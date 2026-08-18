@@ -4,7 +4,7 @@ Cleanup CCIAUTO Test Data from Salesforce Sandbox
 ==================================================
 
 Standalone script that connects to the Salesforce org, finds all test records
-created by the CCI test automation (identified by the "CCIAUTO" keyword in
+created by the Salesforce test automation (identified by the "CCIAUTO" keyword in
 record names), and deletes them in reverse-creation order — keeping records
 from the last N days.
 
@@ -187,7 +187,7 @@ def main():
     dry_run = args.dry_run
 
     print("=" * 60)
-    print("CCI Test Data Cleanup")
+    print("Salesforce Test Data Cleanup")
     print("=" * 60)
     print(f"  Marker:     {MARKER}")
     print(f"  Keep days:  {keep_days}")

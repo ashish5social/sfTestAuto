@@ -3,7 +3,7 @@
 from src.core.sf_connector import SFConnector
 
 
-def cleanup_test_records(connector: SFConnector, sobjects: list[str], prefix: str = "Test_CCI"):
+def cleanup_test_records(connector: SFConnector, sobjects: list[str], prefix: str = "Test_SF"):
     """
     Delete test records matching a naming prefix.
 

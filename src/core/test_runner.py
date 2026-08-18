@@ -16,7 +16,7 @@ class TestDefinition:
     def __init__(self, data: dict, file_path: str = None):
         self.name: str = data.get("name", "Unnamed Test")
         self.description: str = data.get("description", "")
-        self.salesforce_org: str = data.get("salesforce_org", "cci")
+        self.salesforce_org: str = data.get("salesforce_org", "default")
         self.timeout: int = data.get("timeout", 300)
         self.max_steps: int = data.get("max_steps", 50)
         self.steps: list[str] = data.get("steps", [])

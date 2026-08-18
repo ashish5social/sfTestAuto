@@ -212,7 +212,7 @@ class Test{test_func_name.replace("test_", "").title().replace("_", "")}:
         """Setup: login to Salesforce."""
         self.page = page
         self.page.set_default_timeout(DEFAULT_TIMEOUT)
-        self.run_id = "Test_CCI_UI_{datetime.now().strftime('%m%d_%H%M')}"
+        self.run_id = "Test_UI_{datetime.now().strftime('%m%d_%H%M')}"
         sf_login(self.page)
         yield
         # Teardown

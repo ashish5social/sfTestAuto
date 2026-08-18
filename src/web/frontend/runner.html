@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CCI Test Runner | ideaHelix</title>
-  <link rel="icon" type="image/svg+xml" href="https://ideahelix.com/wp-content/uploads/2025/07/favicon.svg" />
+  <title>Salesforce Test Runner | sfauto</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/mark.svg" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -39,8 +39,10 @@
     /* ── Header ── */
     .top-bar { display:flex; align-items:center; justify-content:space-between; padding:1rem 0; margin-bottom:0.5rem; border-bottom:1px solid var(--border); }
     .top-bar .brand { display:flex; align-items:center; gap:14px; }
-    .top-bar .brand img.logo-ih { height:32px; width:auto; display:block; }
-    .top-bar .brand img.logo-fidium { height:32px; width:auto; display:block; }
+        .top-bar .brand .brand-lockup svg { display:block; flex:none; }
+    .top-bar .brand .brand-words { display:flex; flex-direction:column; line-height:1.12; margin-left:2px; }
+    .top-bar .brand .brand-word-1 { font-size:14px; font-weight:700; letter-spacing:.1px; }
+    .top-bar .brand .brand-word-2 { font-size:9.5px; font-weight:500; letter-spacing:1.4px; opacity:.7; }
     .top-bar .brand .divider { width:1px; height:24px; background:var(--border); align-self:center; }
     .top-bar .brand .app-name { font-size:0.9rem; font-weight:600; color:var(--muted); line-height:1; }
     .top-bar .actions { display:flex; gap:8px; }
@@ -523,6 +525,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
+    const BRAND_MARK = `<svg width="30" height="30" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Spread Unconditional Love"><defs><linearGradient id="sul-ui" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF7A7A"/><stop offset="52%" stop-color="#F06595"/><stop offset="100%" stop-color="#7C5CF7"/></linearGradient></defs><path d="M16 28.4C16 28.4 2.6 20.4 2.6 12.1 2.6 7.4 6.3 3.6 10.8 3.6c2.7 0 4.5 1.4 5.2 2.7.7-1.3 2.5-2.7 5.2-2.7 4.5 0 8.2 3.8 8.2 8.5 0 8.3-13.4 16.3-13.4 16.3z" fill="url(#sul-ui)"/><path d="M9.3 10.2c1-1.9 2.9-3.1 5-3.1" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2.1" stroke-linecap="round"/></svg>`;
 const { useState, useEffect, useCallback, useRef } = React;
 
 const API = '/api/generated';
@@ -878,10 +881,13 @@ function App() {
       {/* Top bar */}
       <div className="top-bar">
         <div className="brand">
-          <img className="logo-ih" src="https://ideahelix.com/wp-content/uploads/2025/07/haeder_logo.svg" alt="ideaHelix" />
-          <img className="logo-fidium" src="https://d191tlbtp8692k.cloudfront.net/prod/fcom/global/Logo-Header-76x36.svg" alt="Fidium Fiber" />
+          <span className="brand-lockup" dangerouslySetInnerHTML={{__html: BRAND_MARK}} />
+          <span className="brand-words">
+            <span className="brand-word-1">Spread</span>
+            <span className="brand-word-2">UNCONDITIONAL LOVE</span>
+          </span>
           <div className="divider" />
-          <span className="app-name">CCI Test Runner</span>
+          <span className="app-name">Salesforce Test Runner</span>
         </div>
         <div className="actions">
           <button className="btn btn-ghost btn-sm" onClick={() => { loadTests(); loadHistory(); }}>Refresh</button>
@@ -1588,7 +1594,7 @@ function MultiViewer({ liveProgress, running, runId, tests, onClose, onCancelAll
 //   test_report_0521_113900.html            (UI, pre-uuid layout)
 //   test_report_api_0521_113900_a1b2.html   (API — no video, separate folder)
 // The matching .webm lives at:
-//   /screenshots/Test_CCI_UI_{ts}/recording_{ts}.webm
+//   /screenshots/Test_UI_{ts}/recording_{ts}.webm
 // ts is the entire timestamp+uuid segment between "test_report_" and ".html".
 function deriveVideoUrl(item) {
   const reportUrl = (item?.report_urls || [])[0] || '';
@@ -1598,7 +1604,7 @@ function deriveVideoUrl(item) {
   const ts = m[1];
   const type = item?.type || 'ui';
   if (type === 'api') return '';     // API tests have no video recording
-  return `/screenshots/Test_CCI_UI_${ts}/recording_${ts}.webm`;
+  return `/screenshots/Test_UI_${ts}/recording_${ts}.webm`;
 }
 
 
@@ -1796,7 +1802,7 @@ function ScreencastViewer({ runId, testName, onClose }) {
 // ─── Post-run video playback ───
 // After the run finishes, the right pane stays mounted and swaps from
 // the live <img> stream to a <video> player loading the recorded .webm
-// from /screenshots/Test_CCI_UI_{ts}/recording_{ts}.webm. The timestamp
+// from /screenshots/Test_UI_{ts}/recording_{ts}.webm. The timestamp
 // is parsed from the report URL ("test_report_{ts}.html"). If multiple
 // tests ran, a dropdown lets the user pick which one to replay.
 function RunPlayback({ result, liveProgress, tests, onClose, onRerunFailed }) {
@@ -1812,7 +1818,7 @@ function RunPlayback({ result, liveProgress, tests, onClose, onRerunFailed }) {
     const ts = m ? m[1] : null;
     const type = it.type || (it.filename?.includes('_api') ? 'api' : 'ui');
     const videoUrl = (type === 'ui' && ts)
-      ? `/screenshots/Test_CCI_UI_${ts}/recording_${ts}.webm`
+      ? `/screenshots/Test_UI_${ts}/recording_${ts}.webm`
       : '';
     const lookup = tests.find(t => t.id === it.id || t.filename === it.filename);
     return {

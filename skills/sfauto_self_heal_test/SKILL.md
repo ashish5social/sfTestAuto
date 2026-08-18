@@ -1,5 +1,5 @@
 ---
-name: ih_self_heal_test
+name: sfauto_self_heal_test
 description: >
   Self-heal a failing Playwright test by running every step in a connected Chrome browser,
   identifying broken locators, discovering correct replacements from the live Salesforce UI,
@@ -9,7 +9,7 @@ description: >
   Also trigger when the user asks to verify/validate that a test works by running it in the browser.
 ---
 
-# ih_self_heal_test — Salesforce Playwright Test Self-Healer
+# sfauto_self_heal_test — Salesforce Playwright Test Self-Healer
 
 ## Overview
 

@@ -52,8 +52,8 @@ def connect() -> Salesforce:
     """
     SOAP login, then re-create client with the My-Domain host from
     SF_LOGIN_URL. This sidesteps simple-salesforce's habit of returning a
-    single-dash `sf_instance` (fidium-test1...) when the real DNS host
-    uses double dashes (fidium--test1...). Same pattern used by
+    single-dash `sf_instance` (myorg-dev...) when the real DNS host
+    uses double dashes (myorg--dev...). Same pattern used by
     scripts/cleanup_test_data.py.
     """
     from urllib.parse import urlparse

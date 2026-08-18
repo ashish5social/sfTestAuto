@@ -7,8 +7,8 @@ Data file: tests/{{ui|api}}/data/tc{{TC_NUM}}_{{slug}}.json
 Selectors captured from LIVE Salesforce org: {{ORG_IDENTIFIER}}
 Generated: {{DATE}}
 
-Run:      cci test tests/{{ui|api}}/test_cci_tc{{TC_NUM}}_{{slug}}.py
-Headless: cci test tests/{{ui|api}}/test_cci_tc{{TC_NUM}}_{{slug}}.py --headless
+Run:      sfauto test tests/{{ui|api}}/test_cci_tc{{TC_NUM}}_{{slug}}.py
+Headless: sfauto test tests/{{ui|api}}/test_cci_tc{{TC_NUM}}_{{slug}}.py --headless
 
 Conventions to keep (don't break these):
   - Use the `sf` fixture for every Salesforce action. Helpers like
@@ -53,7 +53,7 @@ DATA = json.loads(
 # the dashboard's parallel pool (src/web/parallel_runner.py).
 # PYTEST_XDIST_WORKER is set by pytest-xdist in CI. With either present
 # the timestamp gets an `s0` / `s1` / `s2` / `s3` suffix that prevents
-# parallel workers from generating identical CCIAUTO_Biz_… account names.
+# parallel workers from generating identical SFAUTO_Biz_… account names.
 
 TZ = ZoneInfo("America/Los_Angeles")
 NOW = datetime.now(TZ)

@@ -7,7 +7,7 @@ saying "Fill 'Customer's Legal Name' with X", not by hunting for the
 right `<input id='abc-12345-...'>` selector. Salesforce changes the
 generated ids on every metadata deploy; labels are stable.
 
-This module covers the field types CCI tests touch:
+This module covers the field types Salesforce tests touch:
 
   - Plain text / textarea         → fill_field_by_label
   - Native <select>               → select_native
@@ -171,7 +171,7 @@ def select_record_type(page: Page, value: str) -> bool:
 def select_picklist(page: Page, field_label: str, value: str) -> bool:
     """Set a picklist / combobox / Aura-anchor picklist value.
 
-    Handles every picklist variant CCI uses, in order of likelihood:
+    Handles every picklist variant Salesforce uses, in order of likelihood:
       A) Native <select> immediately after the field's <label>.
       B) Aura ``<a class="select" role="button">`` trigger.
       C) Lightning ``role="combobox"`` named ``field_label``.

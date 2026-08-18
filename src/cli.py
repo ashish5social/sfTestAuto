@@ -1,4 +1,4 @@
-"""CLI for CCI Test Automation.
+"""CLI for sfauto.
 
 Commands:
   test       - Run one or more Playwright test files via pytest
@@ -18,12 +18,12 @@ from src.core.config import config
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CCI Test Automation CLI",
+        description="sfauto CLI",
         epilog="Examples:\n"
-               "  cci test tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py\n"
-               "  cci test tests/api/                  # run all API tests\n"
-               "  cci test tests/ --headless           # run everything headless\n"
-               "  cci server\n",
+               "  sfauto test tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py\n"
+               "  sfauto test tests/api/                  # run all API tests\n"
+               "  sfauto test tests/ --headless           # run everything headless\n"
+               "  sfauto server\n",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="command")
@@ -147,7 +147,7 @@ def main():
         out_path = output_dir / out_name
         out_path.write_text(script)
         print(f"\nGenerated: {out_path}")
-        print(f"Run with:  cci test {out_path}")
+        print(f"Run with:  sfauto test {out_path}")
         print()
         return
 
@@ -159,7 +159,7 @@ def main():
         print(f"\nGenerated {len(paths)} test scripts:")
         for p in paths:
             print(f"  {p}")
-        print(f"\nRun all:  cci test {output_dir}/")
+        print(f"\nRun all:  sfauto test {output_dir}/")
         print()
         return
 

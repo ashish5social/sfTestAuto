@@ -1,7 +1,7 @@
 """
 Vlocity CPQ catalog / cart helpers.
 
-Specific to CCI's Salesforce Communications Cloud (Vlocity) flows.
+Salesforce Industries (Vlocity) CPQ cart flows.
 Generic Salesforce form helpers live in ``forms.py``; this module
 covers operations that ONLY exist inside the Vlocity catalog/cart
 experience:
@@ -17,7 +17,7 @@ When this doesn't work
 ----------------------
 - ``search_catalog`` returns False / no results → the catalog search
   is debounced; try increasing the wait between typing and reading.
-  Some CCI deploys use a custom search component that needs
+  Some Vlocity deploys use a custom search component that needs
   ``page.locator("input[role='combobox']")`` rather than ``[type=search]``.
 - ``add_product_to_cart`` clicks the wrong product's Add → make sure
   you call ``search_catalog`` first so the only visible product card
@@ -185,7 +185,7 @@ def configure_attribute(
 ) -> bool:
     """Set an attribute on the Configure Cart screen.
 
-    Most CCI cart attributes are either lookups (Provided By, etc.) or
+    Most Vlocity cart attributes are either lookups (Provided By, etc.) or
     picklists (Bandwidth, Quote Type). This helper delegates to the
     right form helper based on the field type's appearance.
 

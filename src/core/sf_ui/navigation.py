@@ -28,7 +28,7 @@ from src.core.sf_ui.waits import wait_page_ready
 
 def _instance_root(page: Page) -> str:
     """Derive the Salesforce instance root (e.g.
-    https://fidium--apitest1.sandbox.my.salesforce.com) from the
+    https://myorg--dev.sandbox.my.salesforce.com) from the
     browser's current URL. Splits before '/lightning' so we keep the
     org host regardless of which page we're on."""
     return page.url.split("/lightning")[0]

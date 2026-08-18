@@ -1,5 +1,5 @@
 """
-Pytest-Playwright configuration & framework orchestrator for CCI Test Automation.
+Pytest-Playwright configuration & framework orchestrator for sfauto.
 
 This is the ONLY place where framework concerns live:
   - Browser launch config (maximized, no viewport)
@@ -56,7 +56,7 @@ from src.api.api_reporter import generate_api_report
 
 # Output directories — can be overridden via env vars for CI environments
 import os
-_output_base = Path(os.environ.get("CCI_OUTPUT_DIR", str(PROJECT_ROOT)))
+_output_base = Path(os.environ.get("SFAUTO_OUTPUT_DIR", str(PROJECT_ROOT)))
 VIDEO_TEMP_DIR = _output_base / "videos_tmp"
 REPORT_DIR = _output_base / "reports"
 SCREENSHOTS_BASE = _output_base / "screenshots"
@@ -134,7 +134,7 @@ def _active_browser_name(request) -> str:
 def browser_type_launch_args(browser_type_launch_args, request):
     """Per-browser launch arguments.
 
-    Chromium / Chrome / Edge get the standard CCI flag set:
+    Chromium / Chrome / Edge get the standard Salesforce flag set:
       --deny-permission-prompts   silently deny geolocation/notifications
       --no-sandbox                required in GitHub Actions / Docker
       --disable-dev-shm-usage     CI containers have tiny /dev/shm
@@ -258,7 +258,7 @@ def tracker(request, page):
         pass
 
     # Determine where the final video should live
-    screenshot_dir = SCREENSHOTS_BASE / f"Test_CCI_UI_{run_ts}"
+    screenshot_dir = SCREENSHOTS_BASE / f"Test_UI_{run_ts}"
     video_dest = str(screenshot_dir / f"recording_{run_ts}.webm")
 
     # Generate report WITHOUT video for now (so it exists even if video copy fails)
@@ -380,7 +380,7 @@ class SFHelpers:
                 sf.login()
 
             with sf.step(2, "Create account"):
-                sf.fill("Account Name", "CCIAUTO_001")
+                sf.fill("Account Name", "SFAUTO_001")
                 sf.click("Save")
 
         Direct module access is also fine when a test needs the raw
@@ -586,7 +586,7 @@ def sf(request, page, tracker):
         sf.wait_spinner()
         sf.screenshot_with_golden("01_logged_in")   # visual regression
     """
-    screenshot_dir = SCREENSHOTS_BASE / f"Test_CCI_UI_{tracker._run_timestamp}"
+    screenshot_dir = SCREENSHOTS_BASE / f"Test_UI_{tracker._run_timestamp}"
     helpers = SFHelpers(page, screenshot_dir)
     # Stash references the visual-regression helper needs. We deliberately
     # set these as private attributes rather than constructor args to keep
@@ -745,9 +745,9 @@ def _live_screencast(request):
             pass
 
 
-# ── Network capture hook (activated by CCI_CAPTURE=1) ────────────────────────
+# ── Network capture hook (activated by SFAUTO_CAPTURE=1) ────────────────────────
 #
-# When CCI_CAPTURE=1, this fixture attaches page.on("request") and
+# When SFAUTO_CAPTURE=1, this fixture attaches page.on("request") and
 # page.on("response") listeners to the active Playwright `page` and records
 # every Vlocity / OmniScript / IP / Apex REST call to /tmp/cci_capture.jsonl.
 #
@@ -780,9 +780,9 @@ def _capture_mask(headers: dict) -> dict:
 
 
 @pytest.fixture(autouse=True)
-def _cci_capture(request):
-    """No-op unless CCI_CAPTURE=1. Attaches network listeners to `page`."""
-    if os.getenv("CCI_CAPTURE") != "1":
+def _sfauto_capture(request):
+    """No-op unless SFAUTO_CAPTURE=1. Attaches network listeners to `page`."""
+    if os.getenv("SFAUTO_CAPTURE") != "1":
         yield
         return
 
@@ -863,7 +863,7 @@ def _cci_capture(request):
 
     page.on("request", on_request)
     page.on("response", on_response)
-    print(f"\n  [CCI_CAPTURE=1] Network capture active → {capture_log}")
+    print(f"\n  [SFAUTO_CAPTURE=1] Network capture active → {capture_log}")
 
     yield
 
@@ -944,7 +944,7 @@ def sf_api(api_tracker):
     and duration without the test having to log manually.
 
     Usage:
-        acc_id = sf_api.create("Account", {"Name": "CCIAUTO_Biz_..."}, name="Create Account")
+        acc_id = sf_api.create("Account", {"Name": "SFAUTO_Biz_..."}, name="Create Account")
         body = sf_api.call_ip("Business_CalculateMRRs", {...}, name="IP: CalculateMRRs")
     """
     return SFApiClient(tracker=api_tracker)

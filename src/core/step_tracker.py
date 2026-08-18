@@ -65,7 +65,7 @@ class StepTracker:
 
         Args:
             label:       Human-readable label, e.g., "Account", "Quote Name".
-            name:        The record's display name, e.g., "CCIAUTO_Quote_0416_230247".
+            name:        The record's display name, e.g., "SFAUTO_Quote_0416_230247".
             record_id:   15/18-char Salesforce record ID. If provided together
                          with object_type, a /lightning/r/.../view URL is built.
             url:         Optional full URL. Takes precedence over record_id.
