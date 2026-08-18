@@ -1,0 +1,41 @@
+{
+  "_comment": "Test data template — copy to tests/{ui,api}/data/tc<N>_<slug>.json. Use real CCIAUTO prefixes (e.g. CCIAUTO_Biz_, CCIAUTO_API_) so the cleanup script can find these records. See tests/ui/data/tc1_create_enterprise_quote_with_dia.json for the canonical example.",
+
+  "record_type": "{{Business|Residential|...}}",
+  "account_name_prefix": "CCIAUTO_{{Biz|Res|API}}_",
+
+  "addresses": [
+    {
+      "full": "{{Full street address}}",
+      "region": "{{Region name shown in dashboard popup via OBJECTIVE placeholders}}",
+      "_optional_other_fields": "city, state, zip, technology, etc."
+    }
+  ],
+
+  "product": {
+    "search_term": "{{Term to type into Vlocity catalog search}}",
+    "display_name": "{{Product name shown in catalog results}}",
+    "bandwidth": "{{e.g. 100 Mbps}}",
+    "expected_summary_products": ["{{name1}}", "{{name2}}"]
+  },
+
+  "opportunity": {
+    "name_prefix": "CCIAUTO_Opp_",
+    "stage": "{{Generate Interest}}",
+    "close_date_offset_days": 30
+  },
+
+  "quote": {
+    "quote_name_prefix": "CCIAUTO_Quote_",
+    "create_button_name": "{{Create Enterprise Quote}}",
+    "service_term_months": 12,
+    "price_list": "{{CCI Commercial Pricing List}}"
+  },
+
+  "timeout_ms": 60000,
+
+  "expected": {
+    "{{key1}}": "{{expected value}}",
+    "{{key2}}": "{{expected value}}"
+  }
+}

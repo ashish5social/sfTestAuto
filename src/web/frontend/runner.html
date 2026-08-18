@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CCI Test Runner | ideaHelix</title>
+  <link rel="icon" type="image/svg+xml" href="https://ideahelix.com/wp-content/uploads/2025/07/favicon.svg" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <style>
+    :root {
+      --orange: #FE763C;
+      --orange-hover: #e5642e;
+      --orange-light: #FFF3ED;
+      --orange-muted: #FDDCCC;
+      --bg: #FAFAFA;
+      --surface: #FFFFFF;
+      --surface2: #F5F5F5;
+      --border: #E5E7EB;
+      --text: #1A1A1A;
+      --muted: #6B7280;
+      --success: #16A34A;
+      --success-bg: #DCFCE7;
+      --danger: #DC2626;
+      --danger-bg: #FEE2E2;
+      --warning-bg: #FEF3C7;
+      --radius: 10px;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    /* Use the full screen with ~5% total horizontal whitespace (2.5%
+       each side). The history + tests tables benefit enormously from
+       the extra width — no more wrapped run IDs and squished columns.
+       max-width caps at 1800px so really wide displays don't stretch
+       single-column text uncomfortably. */
+    #root { max-width:1800px; margin:0 auto; padding:0 2.5vw 2rem; }
+
+    /* ── Header ── */
+    .top-bar { display:flex; align-items:center; justify-content:space-between; padding:1rem 0; margin-bottom:0.5rem; border-bottom:1px solid var(--border); }
+    .top-bar .brand { display:flex; align-items:center; gap:14px; }
+    .top-bar .brand img.logo-ih { height:32px; width:auto; display:block; }
+    .top-bar .brand img.logo-fidium { height:32px; width:auto; display:block; }
+    .top-bar .brand .divider { width:1px; height:24px; background:var(--border); align-self:center; }
+    .top-bar .brand .app-name { font-size:0.9rem; font-weight:600; color:var(--muted); line-height:1; }
+    .top-bar .actions { display:flex; gap:8px; }
+
+    .header { margin:1.25rem 0 1rem; }
+    .header h1 { font-size:1.5rem; font-weight:700; color:var(--text); }
+    .header .subtitle { color:var(--muted); font-size:0.85rem; margin-top:2px; }
+
+    /* ── Badges ── */
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+    .badge-passed  { background:var(--success-bg); color:#166534; }
+    .badge-failed  { background:var(--danger-bg); color:#991B1B; }
+    .badge-error   { background:#FFEDD5; color:#9A3412; }
+    .badge-running { background:var(--orange-light); color:var(--orange); animation:pulse 1.5s infinite; }
+    .badge-skipped { background:var(--surface2); color:var(--muted); }
+    .badge-waiting { background:var(--surface2); color:var(--muted); }
+    .badge-cancelled { background:#FFEDD5; color:#9A3412; }
+
+    /* Test-type badges: UI = blue (Playwright/browser); API = purple (REST) */
+    .type-badge {
+      display:inline-flex; align-items:center; gap:3px;
+      padding:2px 8px; border-radius:5px;
+      font-size:0.65rem; font-weight:700; letter-spacing:0.6px;
+      text-transform:uppercase; font-family:'Inter',sans-serif;
+    }
+    .type-badge.ui  { background:#DBEAFE; color:#1E3A8A; }
+    .type-badge.api { background:#EDE9FE; color:#5B21B6; }
+    .type-badge::before {
+      content:''; width:6px; height:6px; border-radius:50%;
+      display:inline-block;
+    }
+    .type-badge.ui::before  { background:#1E40AF; }
+    .type-badge.api::before { background:#6D28D9; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+    /* ── Buttons ── */
+    .btn { padding:0.55rem 1.1rem; border:none; border-radius:var(--radius); font-size:0.85rem; font-weight:600; cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-primary { background:var(--orange); color:#fff; }
+    .btn-primary:hover:not(:disabled) { background:var(--orange-hover); }
+    .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--border); }
+    .btn-ghost:hover { background:var(--surface2); color:var(--text); }
+    .btn-danger { background:var(--danger); color:#fff; }
+    .btn-sm { padding:0.3rem 0.65rem; font-size:0.75rem; }
+
+    /* ── Card ── */
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; margin-bottom:1.25rem; }
+    .card h2 { font-size:0.75rem; margin-bottom:0.75rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* ── Table ── */
+    table { width:100%; border-collapse:collapse; }
+    th { text-align:left; padding:0.6rem 0.75rem; font-size:0.7rem; text-transform:uppercase; color:var(--muted); font-weight:700; letter-spacing:0.5px; border-bottom:2px solid var(--border); }
+    td { padding:0.65rem 0.75rem; border-bottom:1px solid var(--border); font-size:0.85rem; }
+    tr:hover td { background:var(--orange-light); }
+
+    .checkbox { width:18px; height:18px; accent-color:var(--orange); cursor:pointer; }
+
+    /* ── Tabs ── */
+    .tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
+    .tab { padding:0.75rem 1.5rem; font-size:0.85rem; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; }
+    .tab:hover { color:var(--text); }
+    .tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+
+    .toolbar { display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap; }
+
+    /* ── Output ── */
+    .output-box { background:#1A1A2E; border-radius:8px; padding:1rem; font-family:'Fira Code','SF Mono',monospace; font-size:0.78rem; line-height:1.6; max-height:700px; overflow:auto; white-space:pre-wrap; color:#B0BEC5; }
+    .output-box .line-pass { color:var(--success); }
+    .output-box .line-fail { color:var(--danger); }
+    .output-box .line-info { color:var(--orange); }
+
+    .empty { text-align:center; padding:3rem; color:var(--muted); }
+    .empty .icon { font-size:2.5rem; margin-bottom:0.75rem; }
+
+    .spinner-inline { display:inline-block; width:16px; height:16px; border:2px solid rgba(254,118,60,.3); border-top-color:var(--orange); border-radius:50%; animation:spin .6s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .test-name { font-weight:600; color:var(--text); }
+    .test-name small { color:var(--muted); font-weight:400; }
+    .desc-tooltip { max-width:350px; font-size:0.78rem; color:var(--muted); line-height:1.4; }
+
+    /* ── Test-name row: friendly name + info button ── */
+    .test-name-row { display:flex; align-items:center; gap:8px; }
+    .test-filename-sub { font-family:'SF Mono','Fira Code',Menlo,Consolas,monospace; font-size:0.7rem; color:var(--muted); font-weight:400; margin-top:2px; }
+    .info-btn {
+      flex-shrink:0; width:22px; height:22px; border-radius:50%; border:1px solid var(--border);
+      background:var(--surface); color:var(--muted); cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center;
+      font-size:12px; font-weight:700; font-family:Georgia,serif; line-height:1;
+      transition:all .15s;
+    }
+    .info-btn:hover { background:var(--orange-light); color:var(--orange); border-color:var(--orange); }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000;
+      display:flex; align-items:center; justify-content:center; padding:2rem;
+      animation:fade-in .15s ease;
+    }
+    @keyframes fade-in { from { opacity:0; } to { opacity:1; } }
+    .modal {
+      background:var(--surface); border-radius:var(--radius);
+      max-width:720px; width:100%; max-height:85vh; overflow:hidden;
+      display:flex; flex-direction:column;
+      box-shadow:0 25px 50px -12px rgba(0,0,0,.25);
+      animation:slide-up .2s ease;
+    }
+    @keyframes slide-up { from { transform:translateY(16px); opacity:0; } to { transform:none; opacity:1; } }
+    .modal-header {
+      padding:1rem 1.5rem; border-bottom:1px solid var(--border);
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+    }
+    .modal-header h3 { font-size:1.05rem; font-weight:700; color:var(--text); line-height:1.3; }
+    .modal-header .modal-sub { font-family:'SF Mono','Fira Code',Menlo,Consolas,monospace; font-size:0.72rem; color:var(--muted); margin-top:4px; }
+    .modal-close {
+      background:transparent; border:none; color:var(--muted); cursor:pointer;
+      font-size:1.5rem; line-height:1; padding:0 6px; flex-shrink:0;
+    }
+    .modal-close:hover { color:var(--text); }
+    .modal-body { padding:1.25rem 1.5rem; overflow-y:auto; }
+    .modal-body h4 { font-size:0.7rem; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:700; margin-bottom:0.5rem; }
+    .modal-body .objective { color:var(--text); font-size:0.9rem; line-height:1.55; margin-bottom:1.25rem; white-space:pre-wrap; }
+    .modal-body ol.steps-list { list-style:none; counter-reset:step; padding-left:0; }
+    .modal-body ol.steps-list li {
+      counter-increment:step; position:relative;
+      padding:0.55rem 0.5rem 0.55rem 2.25rem; border-bottom:1px solid var(--border);
+      font-size:0.85rem; line-height:1.45; color:var(--text);
+    }
+    .modal-body ol.steps-list li:last-child { border-bottom:none; }
+    .modal-body ol.steps-list li::before {
+      content:counter(step); position:absolute; left:0; top:0.55rem;
+      width:22px; height:22px; border-radius:50%;
+      background:var(--orange-light); color:var(--orange);
+      display:flex; align-items:center; justify-content:center;
+      font-size:0.7rem; font-weight:700;
+    }
+    .modal-body .tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:1rem; }
+    .modal-body .tag { background:var(--surface2); color:var(--muted); padding:2px 8px; border-radius:12px; font-size:0.68rem; font-weight:600; }
+    .modal-body .no-yaml { color:var(--muted); font-style:italic; font-size:0.85rem; padding:0.5rem 0; }
+
+    /* ── Result summary ── */
+    .result-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.75rem; margin-bottom:1rem; }
+    .result-stat { background:var(--surface2); border-radius:8px; padding:0.75rem 1rem; text-align:center; }
+    .result-stat .label { font-size:0.65rem; text-transform:uppercase; color:var(--muted); font-weight:700; }
+    .result-stat .val { font-size:1.5rem; font-weight:700; margin-top:2px; }
+
+    /* ── Split layout (active while a run is in progress or just completed) ──
+       Left pane is the compressed dashboard, right pane is either the live
+       embedded Chrome (during run) or the recorded video player (after run).
+       The user dismisses the split via the "Close" button on the right bar. */
+    .split-shell {
+      display:flex; width:100vw; height:100vh; overflow:hidden;
+      background:var(--bg);
+    }
+    .split-left {
+      width:22%; min-width:320px; max-width:500px;
+      height:100vh; overflow-y:auto; overflow-x:hidden;
+      border-right:1px solid var(--border);
+      background:var(--surface);
+      transition:width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease;
+      position:relative;
+    }
+    .split-left.collapsed {
+      width:44px; min-width:44px; max-width:44px;
+      padding:0; overflow:hidden;
+    }
+    .split-left.collapsed .dashboard-scroll { display:none; }
+    .dashboard-scroll { padding:0 1rem 2rem; }
+    .collapse-bar {
+      display:flex; align-items:center; justify-content:flex-end;
+      padding:10px 10px 0;
+    }
+    .split-left.collapsed .collapse-bar { justify-content:center; padding-top:14px; }
+    .collapse-btn {
+      width:28px; height:28px; border-radius:50%;
+      background:var(--surface); border:1px solid var(--border);
+      color:var(--muted); cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      font-size:13px; font-weight:700; line-height:1;
+      transition:all .15s; font-family:Arial,sans-serif;
+    }
+    .collapse-btn:hover {
+      background:var(--orange-light); color:var(--orange); border-color:var(--orange);
+    }
+    .split-right {
+      flex:1; height:100vh; background:#0f0f12;
+      display:flex; flex-direction:column; min-width:0;
+    }
+    .screencast-bar {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 16px; background:#1a1a1d; color:#9ca3af;
+      font-size:0.75rem; font-family:'SF Mono','Fira Code',Menlo,monospace;
+      border-bottom:1px solid #2a2a2e; gap:12px;
+    }
+    .screencast-bar .bar-left {
+      display:flex; align-items:center; gap:14px; min-width:0; flex:1;
+    }
+    .screencast-bar .test-name-chip {
+      color:#fff; font-family:'Inter',-apple-system,sans-serif;
+      font-weight:600; font-size:0.8rem;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .screencast-bar .live-dot {
+      display:inline-block; width:8px; height:8px; border-radius:50%;
+      background:#16A34A; margin-right:6px; animation:pulse 1.5s infinite;
+    }
+    .screencast-bar .live-dot.off { background:#6B7280; animation:none; }
+    .screencast-bar .live-dot.done { background:#FE763C; animation:none; }
+    .bar-close-btn {
+      background:transparent; border:1px solid #3a3a3e; color:#9ca3af;
+      padding:4px 10px; border-radius:6px; cursor:pointer;
+      font-size:0.72rem; font-weight:600; font-family:inherit;
+    }
+    .bar-close-btn:hover { background:#2a2a2e; color:#fff; }
+    .screencast-frame {
+      flex:1; display:flex; align-items:center; justify-content:center;
+      padding:12px; overflow:hidden;
+    }
+    .screencast-frame img, .screencast-frame video {
+      max-width:100%; max-height:100%; object-fit:contain;
+      border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+      background:#fff;
+    }
+    .screencast-placeholder {
+      color:#9ca3af; font-size:0.9rem; text-align:center;
+      padding:2rem;
+    }
+    .screencast-placeholder .spinner-inline {
+      border-color:rgba(254,118,60,.3); border-top-color:var(--orange);
+      width:24px; height:24px; border-width:3px; margin-bottom:0.75rem;
+    }
+    .playback-actions {
+      display:flex; gap:8px; padding:10px 16px;
+      background:#1a1a1d; border-top:1px solid #2a2a2e;
+      justify-content:center;
+    }
+    .playback-actions a, .playback-actions button {
+      background:var(--orange); color:#fff; border:none;
+      padding:6px 14px; border-radius:6px;
+      font-size:0.78rem; font-weight:600; text-decoration:none;
+      cursor:pointer; font-family:'Inter',sans-serif;
+      display:inline-flex; align-items:center; gap:6px;
+    }
+    .playback-actions a:hover, .playback-actions button:hover { background:var(--orange-hover); }
+    .playback-actions .secondary {
+      background:transparent; border:1px solid #3a3a3e; color:#9ca3af;
+    }
+    .playback-actions .secondary:hover { background:#2a2a2e; color:#fff; }
+
+    /* ── Terminal log viewer (right pane for API tests during run) ── */
+    .terminal-pane {
+      flex:1; display:flex; flex-direction:column; min-height:0;
+      background:#0a0a0d; padding:14px;
+    }
+    .terminal-window {
+      flex:1; min-height:0;
+      background:#000; border-radius:8px; overflow:hidden;
+      box-shadow:0 8px 24px rgba(0,0,0,0.5);
+      display:flex; flex-direction:column;
+      border:1px solid #1f1f24;
+    }
+    .terminal-titlebar {
+      display:flex; align-items:center; gap:8px;
+      padding:8px 12px; background:#1a1a1f;
+      border-bottom:1px solid #2a2a2e;
+      font-family:'SF Mono','Fira Code',Menlo,monospace;
+      font-size:0.72rem; color:#9ca3af;
+    }
+    .terminal-titlebar .dot {
+      width:11px; height:11px; border-radius:50%;
+      display:inline-block;
+    }
+    .terminal-titlebar .dot.r { background:#FF5F57; }
+    .terminal-titlebar .dot.y { background:#FEBC2E; }
+    .terminal-titlebar .dot.g { background:#28C840; }
+    .terminal-titlebar .label { margin-left:14px; }
+    .terminal-body {
+      flex:1; min-height:0; overflow-y:auto; overflow-x:auto;
+      padding:12px 14px;
+      font-family:'SF Mono','Fira Code',Menlo,Consolas,monospace;
+      font-size:0.75rem; line-height:1.55;
+      color:#e5e7eb;                              /* default: near-white */
+      white-space:pre-wrap; word-break:break-word;
+    }
+    /* Mostly black-and-white — colour only for things the eye needs to
+       jump to: step headers and pass/fail markers. */
+    .terminal-body .ln-step { color:#FE763C; font-weight:600; }      /* ▶ Step N: */
+    .terminal-body .ln-pass { color:#22C55E; }                        /* ✓ Step PASSED */
+    .terminal-body .ln-fail { color:#EF4444; }                        /* ✗ Step FAILED, Traceback */
+    .terminal-body .ln-dim  { color:#6B7280; }                        /* === separators, "collected", etc. */
+
+    /* Pretty-printed JSON box for request / response bodies. */
+    .json-box {
+      background:#0a0a0a; border:1px solid #1f1f24;
+      border-left:3px solid #4B5563;
+      border-radius:4px;
+      margin:4px 0 6px 24px;
+      padding:6px 10px 8px;
+      position:relative;
+    }
+    .json-box.req { border-left-color:#3B82F6; }
+    .json-box.res { border-left-color:#8B5CF6; }
+    .json-box.err { border-left-color:#EF4444; }
+    .json-box-label {
+      position:absolute; top:4px; right:8px;
+      font-size:0.6rem; font-weight:700; letter-spacing:0.6px;
+      color:#6B7280; text-transform:uppercase;
+    }
+    .json-box pre {
+      margin:0; padding:0; color:#d4d4d8;
+      font-family:inherit; font-size:inherit; line-height:1.45;
+      white-space:pre-wrap; word-break:break-word;
+    }
+
+    /* ── Modern tweaks: shadows, softer dividers, compact split-left ── */
+    .card {
+      box-shadow:0 1px 2px rgba(15,23,42,0.04);
+    }
+    .split-left .top-bar {
+      padding:0.7rem 0 0.4rem; border-bottom:1px solid var(--border);
+      margin-bottom:0;
+    }
+    .split-left .header { margin:0.85rem 0 0.6rem; }
+    .split-left .header h1 { font-size:1.15rem; }
+    .split-left .header .subtitle { display:none; }     /* save vertical space when compressed */
+    .split-left .top-bar .brand .divider { display:none; }
+    .split-left .top-bar .brand .app-name { display:none; }
+    .split-left .tabs { margin-bottom:0.85rem; }
+    .split-left .tab { padding:0.55rem 0.85rem; font-size:0.78rem; }
+    .split-left .toolbar { gap:0.5rem; margin-bottom:0.6rem; }
+    .split-left .toolbar .btn { padding:0.4rem 0.75rem; font-size:0.78rem; }
+    .split-left .card { padding:0.85rem; margin-bottom:0.85rem; }
+    .split-left table th { padding:0.45rem 0.55rem; font-size:0.65rem; }
+    .split-left table td { padding:0.5rem 0.55rem; font-size:0.78rem; }
+
+    /* ── MultiViewer grid (parallel live view) ──
+       Up to 4 tiles in a 2x2 or 1x2 grid; one tile maximizes to fill the
+       pane. Headers stay slim — one row with status pill, slot #, test
+       name and a maximize toggle. */
+    .multiviewer { flex:1; display:flex; flex-direction:column; min-height:0; }
+    .mv-toolbar {
+      display:flex; align-items:center; gap:12px;
+      padding:8px 14px; background:#1a1a1d; color:#9ca3af;
+      font-family:'SF Mono','Fira Code',Menlo,monospace; font-size:0.72rem;
+      border-bottom:1px solid #2a2a2e;
+    }
+    .mv-toolbar .mv-modes { display:inline-flex; border:1px solid #3a3a3e; border-radius:6px; overflow:hidden; }
+    .mv-toolbar .mv-modes button {
+      background:transparent; border:none; color:#9ca3af;
+      padding:4px 10px; font-size:0.7rem; cursor:pointer; font-family:inherit;
+    }
+    .mv-toolbar .mv-modes button.active { background:var(--orange); color:#fff; }
+    .mv-toolbar .mv-stat {
+      background:#0f0f12; border:1px solid #2a2a2e; border-radius:4px;
+      padding:2px 8px; font-size:0.7rem; color:#d4d4d8;
+    }
+    .mv-toolbar .mv-stat strong { color:#fff; font-weight:700; }
+    .mv-toolbar .mv-spacer { flex:1; }
+    .mv-toolbar select {
+      background:#0f0f12; color:#fff; border:1px solid #3a3a3e;
+      border-radius:6px; padding:3px 8px; font-size:0.72rem; font-family:inherit;
+      max-width:280px;
+    }
+    .mv-toolbar .bar-close-btn { font-size:0.7rem; }
+
+    .mv-grid { flex:1; display:grid; gap:8px; padding:8px; min-height:0; background:#0f0f12; }
+    .mv-grid.grid-1 { grid-template-columns:1fr; grid-template-rows:1fr; }
+    .mv-grid.grid-2 { grid-template-columns:1fr 1fr; grid-template-rows:1fr; }
+    .mv-grid.grid-3,
+    .mv-grid.grid-4 { grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; }
+    .mv-grid.mode-single { grid-template-columns:1fr; grid-template-rows:1fr; }
+
+    .mv-tile {
+      background:#000; border:1px solid #2a2a2e; border-radius:8px;
+      display:flex; flex-direction:column; min-height:0; overflow:hidden;
+      position:relative;
+    }
+    .mv-tile.empty { background:#1a1a1d; border-style:dashed; }
+    .mv-tile-header {
+      display:flex; align-items:center; gap:8px;
+      padding:6px 10px; background:#15151a; color:#d4d4d8;
+      font-family:'Inter',sans-serif; font-size:0.74rem;
+      border-bottom:1px solid #2a2a2e; flex-shrink:0;
+    }
+    .mv-tile-header .slot-tag {
+      background:#0f0f12; border:1px solid #3a3a3e; color:#9ca3af;
+      padding:1px 6px; border-radius:4px; font-size:0.62rem; font-weight:700;
+      letter-spacing:0.6px; font-family:'SF Mono',Menlo,monospace;
+    }
+    .mv-tile-header .tile-name {
+      flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+      white-space:nowrap; font-weight:600; color:#fff;
+    }
+    .mv-tile-header .tile-actions { display:flex; gap:4px; }
+    .mv-tile-header .tile-btn {
+      background:transparent; border:1px solid #3a3a3e; color:#9ca3af;
+      padding:2px 7px; border-radius:4px; cursor:pointer;
+      font-size:0.65rem; font-family:inherit;
+    }
+    .mv-tile-header .tile-btn:hover { background:#2a2a2e; color:#fff; }
+    .mv-tile-header .tile-btn.danger { border-color:#7a2929; color:#fca5a5; }
+    .mv-tile-header .tile-btn.danger:hover { background:#7a2929; color:#fff; }
+
+    .mv-tile-body { flex:1; min-height:0; display:flex; flex-direction:column; background:#000; }
+    .mv-tile-body.screencast {
+      align-items:center; justify-content:center; padding:6px;
+    }
+    /* Live <img> stream — uses max-width/max-height so frames stay
+       at their natural size but never exceed the tile body. */
+    .mv-tile-body.screencast img {
+      max-width:100%; max-height:100%; object-fit:contain;
+      background:#fff; border-radius:4px;
+      display:block;
+    }
+    /* Recorded <video> playback — needs more aggressive sizing than the
+       live img stream. The <video controls> element renders the
+       playback chrome (play/pause, scrubber, volume, fullscreen) as
+       part of the element itself, NOT as an overlay. If the element
+       sizes to its intrinsic 1280x720 (the recording resolution), the
+       bottom controls bar lands below the visible portion of a smaller
+       grid tile (~700x350 in a 2x2 layout) and the tile's overflow:
+       hidden clips them off. max-width/max-height alone wasn't strong
+       enough because the browser still laid out the element at its
+       intrinsic size before applying the constraint.
+       Forcing explicit width:100%; height:100% makes the element fill
+       the tile body deterministically; object-fit:contain then keeps
+       the video frame's aspect ratio inside that box. The controls
+       bar appears at the bottom edge of the tile body, always
+       visible without the user needing to hover or click. */
+    .mv-tile-body.screencast video {
+      width:100%; height:100%;
+      object-fit:contain;
+      background:#000; border-radius:4px;
+      display:block;
+    }
+    .mv-tile-body.terminal {
+      padding:8px 10px; font-family:'SF Mono','Fira Code',Menlo,monospace;
+      font-size:0.7rem; line-height:1.5; color:#e5e7eb;
+      overflow-y:auto; white-space:pre-wrap; word-break:break-word;
+    }
+    .mv-tile-body.terminal .ln-step { color:#FE763C; font-weight:600; }
+    .mv-tile-body.terminal .ln-pass { color:#22C55E; }
+    .mv-tile-body.terminal .ln-fail { color:#EF4444; }
+    .mv-tile-body.terminal .ln-dim  { color:#6B7280; }
+
+    .mv-tile-empty-msg {
+      flex:1; display:flex; align-items:center; justify-content:center;
+      color:#6B7280; font-size:0.78rem; padding:1rem; text-align:center;
+    }
+
+    .mv-status-pill {
+      font-size:0.6rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:0.6px; padding:1px 7px; border-radius:10px;
+      font-family:'Inter',sans-serif;
+    }
+    .mv-status-pill.running { background:rgba(254,118,60,0.15); color:#FE763C; animation:pulse 1.5s infinite; }
+    .mv-status-pill.passed  { background:rgba(34,197,94,0.15);  color:#22C55E; }
+    .mv-status-pill.failed  { background:rgba(239,68,68,0.15);  color:#EF4444; }
+    .mv-status-pill.cancelled,
+    .mv-status-pill.error   { background:rgba(180,83,9,0.15);   color:#F59E0B; }
+    .mv-status-pill.idle    { background:rgba(107,114,128,0.15); color:#9CA3AF; }
+    .mv-status-pill.waiting { background:rgba(107,114,128,0.15); color:#9CA3AF; }
+
+    /* ── Live progress ── */
+    .progress-card { border-left:4px solid var(--orange); }
+    .progress-card.done-pass { border-left-color:var(--success); }
+    .progress-card.done-fail { border-left-color:var(--danger); }
+    .progress-item { display:flex; align-items:center; gap:12px; padding:0.6rem 0; border-bottom:1px solid var(--border); }
+    .progress-item:last-child { border-bottom:none; }
+    .progress-item .idx { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; flex-shrink:0; }
+    .idx-running { background:var(--orange-light); color:var(--orange); }
+    .idx-passed  { background:var(--success-bg); color:#166534; }
+    .idx-failed  { background:var(--danger-bg); color:#991B1B; }
+    .idx-waiting { background:var(--surface2); color:var(--muted); }
+    .progress-item .name { font-weight:600; font-size:0.85rem; word-break:break-word; overflow-wrap:anywhere; }
+    .progress-item .meta { font-size:0.75rem; color:var(--muted); margin-left:auto; white-space:nowrap; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const API = '/api/generated';
+
+function timeAgo(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return new Date(iso).toLocaleDateString() + ' ' + new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+function fmtDate(iso) {
+  return new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+// Format seconds as "Ys" (under 60s) or "Xm Ys" (>=60s).
+// Examples: 58 -> "58s", 68 -> "1m 8s", 674.7 -> "11m 14.7s".
+function fmtDuration(seconds) {
+  if (seconds == null || seconds === '' || isNaN(Number(seconds))) return '-';
+  const total = Number(seconds);
+  if (total < 60) {
+    return Math.abs(total - Math.round(total)) < 0.05
+      ? `${Math.round(total)}s`
+      : `${+total.toFixed(2)}s`;
+  }
+  const minutes = Math.floor(total / 60);
+  const rem = total - (minutes * 60);
+  const remStr = Math.abs(rem - Math.round(rem)) < 0.05
+    ? `${Math.round(rem)}s`
+    : `${+rem.toFixed(2)}s`;
+  return `${minutes}m ${remStr}`;
+}
+
+function App() {
+  const [tab, setTab] = useState('tests');
+  const [tests, setTests] = useState([]);
+  const [selected, setSelected] = useState(new Set());
+  const [running, setRunning] = useState(false);
+  // liveProgress shape:
+  //   { items: [...], currentIndex, total,
+  //     parallelism: 1..4,                       // updated by `parallelism` SSE event
+  //     slots: {0:null|index, 1:..., 2:..., 3:...},
+  //     queue: { pending, in_flight, completed } // updated by `queue_state` events
+  //   }
+  // `slots[N]` holds the 1-based index of the test currently running in
+  // worker N (null = idle). The MultiViewer keys its tiles off this map.
+  const [liveProgress, setLiveProgress] = useState(null);
+  // Worker count chosen by the user before kicking off the next run.
+  // Server clamps this to [1, 4] and to min(test_count, parallelism).
+  const [parallelismChoice, setParallelismChoice] = useState(4);
+  // Browser for UI tests. Only meaningful when at least one selected
+  // test is type=ui — the toolbar dropdown is disabled otherwise.
+  // The server defaults to Chrome too if the field is omitted.
+  const [browserChoice, setBrowserChoice] = useState('chrome');
+  const [currentResult, setCurrentResult] = useState(null);
+  const [history, setHistory] = useState([]);
+  // expandedRun removed — History rows no longer have an expand/details
+  // toggle. The combined report link in each row is the single entry
+  // point to the full run breakdown.
+  // Headless toggle removed — server always runs headless and streams the
+  // browser into the right pane via CDP screencast over WebSocket.
+  const [loading, setLoading] = useState(true);
+  const [runId, setRunId] = useState(null);      // active run ID — set on first SSE event, cleared by Close button
+  const [detailTest, setDetailTest] = useState(null);  // test object shown in info modal
+  const [leftCollapsed, setLeftCollapsed] = useState(false);  // user-controlled, hides dashboard pane
+
+  const loadTests = useCallback(async () => {
+    try { setTests(await (await fetch(`${API}/tests`)).json()); } catch(e) { console.error(e); }
+  }, []);
+  const loadHistory = useCallback(async () => {
+    try { setHistory(await (await fetch(`${API}/history?limit=100`)).json()); } catch(e) { console.error(e); }
+  }, []);
+
+  useEffect(() => { Promise.all([loadTests(), loadHistory()]).then(() => setLoading(false)); }, []);
+
+  // ── Split-layout side effect ──
+  // Split mode is shown whenever we have a runId AND the user hasn't
+  // dismissed it. Close button just sets `splitDismissed = true` so we
+  // can re-open the same view (live or replay) on demand.
+  const [splitDismissed, setSplitDismissed] = useState(false);
+  const splitMode = !!runId && !splitDismissed;
+  const closeSplit = () => { setSplitDismissed(true); setLeftCollapsed(false); };
+  const reopenSplit = () => { setSplitDismissed(false); };
+  useEffect(() => {
+    const root = document.getElementById('root');
+    if (!root) return;
+    if (splitMode) {
+      root.dataset._origStyle = root.getAttribute('style') || '';
+      root.style.maxWidth = 'none';
+      root.style.margin = '0';
+      root.style.padding = '0';
+    } else if (root.dataset._origStyle !== undefined) {
+      root.setAttribute('style', root.dataset._origStyle);
+      delete root.dataset._origStyle;
+    }
+  }, [splitMode]);
+
+  // Selection now keyed by the canonical test id ("ui/test_x.py" or
+  // "api/test_x.py"), not bare filenames — two tests in different
+  // subfolders can't collide.
+  const toggle = (id) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleAll = () => {
+    setSelected(selected.size === tests.length ? new Set() : new Set(tests.map(t => t.id)));
+  };
+
+  // ── Run with SSE streaming ──
+  // ``explicitTests`` lets callers (re-run button) bypass the React
+  // selection state — important because setSelected is async and a
+  // setTimeout-then-runSelected pattern would close over stale state.
+  const runSelected = async (explicitTests) => {
+    const testList = explicitTests || [...selected];
+    if (testList.length === 0) return;
+    setRunning(true);
+    setCurrentResult(null);
+    setSplitDismissed(false);   // fresh run → open split view
+    // Stay on tests tab — split view shows live, results show in history when done.
+    // Build live-progress items with type already known (lets the right
+    // pane decide between screencast vs terminal-log even before the
+    // first SSE start event arrives).
+    // Clamp parallelism to [1, test_count, 4] — sending a higher number
+    // is wasteful (the server clamps too, but doing it here keeps the
+    // initial grid the right size before the `parallelism` event lands).
+    const effectiveParallelism = Math.min(parallelismChoice, testList.length, 4);
+    setLiveProgress({
+      items: testList.map((id, i) => {
+        const meta = tests.find(t => t.id === id);
+        return {
+          id,
+          filename: meta?.filename || id.split('/').pop(),
+          display_name: meta?.display_name || null,
+          type: meta?.type || (id.startsWith('api/') ? 'api' : 'ui'),
+          status: 'waiting',
+          index: i + 1,
+          liveLog: '',
+          slot: null,            // worker that picked this test (0..3)
+          test_run_id: null,     // child run_id used by the screencast bridge
+        };
+      }),
+      currentIndex: 0,
+      total: testList.length,
+      parallelism: effectiveParallelism,
+      slots: { 0:null, 1:null, 2:null, 3:null },
+      queue: { pending: testList.length, in_flight: 0, completed: 0 },
+    });
+
+    try {
+      const response = await fetch(`${API}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // headless is always true now — the dashboard streams the browser
+        // into the right pane instead of opening a separate Chrome window.
+        body: JSON.stringify({
+          tests: testList,
+          headless: true,
+          parallelism: effectiveParallelism,
+          browser: browserChoice,
+        }),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events from buffer
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop(); // keep incomplete chunk
+
+        for (const part of parts) {
+          const eventMatch = part.match(/^event:\s*(.+)$/m);
+          const dataMatch = part.match(/^data:\s*(.+)$/m);
+          if (!eventMatch || !dataMatch) continue;
+
+          const eventType = eventMatch[1];
+          const data = JSON.parse(dataMatch[1]);
+
+          if (eventType === 'run_id') {
+            setRunId(data.run_id);
+          }
+
+          if (eventType === 'parallelism') {
+            // Server has clamped our requested parallelism — adopt it so
+            // the grid renders the correct number of tiles.
+            setLiveProgress(prev => prev
+              ? { ...prev, parallelism: data.value }
+              : prev);
+          }
+
+          if (eventType === 'queue_state') {
+            setLiveProgress(prev => prev
+              ? { ...prev, queue: {
+                  pending: data.pending,
+                  in_flight: data.in_flight,
+                  completed: data.completed,
+                } }
+              : prev);
+          }
+
+          if (eventType === 'start') {
+            setLiveProgress(prev => {
+              if (!prev) return prev;
+              const items = prev.items.map((it, idx) =>
+                idx === data.index - 1
+                  ? { ...it, status: 'running', liveLog: '',
+                      type: data.type || it.type, id: data.id || it.id,
+                      filename: data.filename || it.filename,
+                      slot: data.slot ?? it.slot,
+                      test_run_id: data.test_run_id || it.test_run_id }
+                  : it
+              );
+              const slots = { ...prev.slots };
+              if (typeof data.slot === 'number') {
+                slots[data.slot] = data.index;
+              }
+              return { ...prev, items, slots, currentIndex: data.index };
+            });
+          }
+
+          if (eventType === 'log') {
+            // Append live log line to whichever item is in this slot
+            // (or fall back to index-1 if the event doesn't carry slot).
+            setLiveProgress(prev => {
+              if (!prev) return prev;
+              const items = prev.items.map((it, idx) =>
+                idx === data.index - 1
+                  ? { ...it, liveLog: (it.liveLog || '') + data.line + '\n' }
+                  : it
+              );
+              return { ...prev, items };
+            });
+          }
+
+          if (eventType === 'complete') {
+            // KEY CHANGE for tile-lifecycle: we DON'T null the slot here.
+            // The slot keeps pointing at this test (now in a passed/
+            // failed/cancelled state). The tile will swap from live
+            // frames to the recorded video automatically based on the
+            // item's new status. When the worker grabs its next test, a
+            // fresh `start` event overwrites the slot's index — that's
+            // the only thing that displaces the previous test from the
+            // tile. If the queue is empty (`slot_idle` follows), the
+            // last test stays visible until the user closes the view.
+            setLiveProgress(prev => {
+              if (!prev) return prev;
+              const items = prev.items.map((it, idx) =>
+                idx === data.index - 1
+                  ? { ...it, status: data.status, duration_s: data.duration_s,
+                      verdicts: data.verdicts, report_urls: data.report_urls,
+                      output: data.output,
+                      slot: data.slot ?? it.slot,
+                      test_run_id: data.test_run_id || it.test_run_id }
+                  : it
+              );
+              return { ...prev, items };
+            });
+          }
+
+          if (eventType === 'slot_idle') {
+            // Don't clear the slot — keep the last test's playback
+            // visible in the tile. The `running` state on the parent
+            // SSE handler flips to false when `done` arrives, which
+            // makes the tile render the recorded video instead of
+            // the live frames.
+            // (No state change needed.)
+          }
+
+          if (eventType === 'done') {
+            setCurrentResult(data);
+            setRunning(false);
+            // NOTE: don't clear runId here — we keep split mode active so
+            // the right pane can swap from LIVE to the recorded video.
+            // Close button on the right bar clears runId.
+            await loadHistory();
+          }
+        }
+      }
+    } catch (e) {
+      setCurrentResult({ status: 'error', output: e.message, tests: [...selected] });
+      setRunning(false);
+      // Keep runId set so split mode stays — user dismisses via Close button.
+    }
+  };
+
+  // ── Cancel functions ──
+  const cancelAll = async () => {
+    if (!runId) return;
+    try { await fetch(`${API}/cancel/${runId}?mode=all`, { method: 'POST' }); } catch(e) { console.error(e); }
+  };
+  const cancelCurrent = async () => {
+    if (!runId) return;
+    try { await fetch(`${API}/cancel/${runId}?mode=current`, { method: 'POST' }); } catch(e) { console.error(e); }
+  };
+  // Per-slot cancel: kill the test currently running in worker N. The
+  // worker picks the next queued test (if any). Used by the maximize/×
+  // button on individual MultiViewer tiles.
+  const cancelSlot = async (slot) => {
+    if (!runId || typeof slot !== 'number') return;
+    try { await fetch(`${API}/cancel/${runId}?mode=slot&slot=${slot}`, { method: 'POST' }); } catch(e) { console.error(e); }
+  };
+
+  // ── Re-run failed tests (manual-only, per user requirement) ──
+  // Pulls the failing test ids out of a completed run and resubmits them
+  // as a new run. Used by the "Re-run Failed" button on history rows and
+  // on the post-run replay header.
+  const rerunFailedFromHistory = (h) => {
+    if (!h || !Array.isArray(h.test_results)) return;
+    const failedIds = new Set();
+    for (const v of h.test_results) {
+      if (v.result !== 'failed' && v.result !== 'error') continue;
+      // v.test looks like "tests/ui/test_x.py::TestClass::test_method"
+      // — strip the leading "tests/" and the "::..." method bit so the
+      // dashboard's id format ({type}/{filename}) is recovered.
+      const m = (v.test || '').match(/tests\/(ui|api)\/([^:]+\.py)/);
+      if (m) failedIds.add(`${m[1]}/${m[2]}`);
+    }
+    if (!failedIds.size) return;
+    // Cross-check against the currently loaded tests (in case the file
+    // was renamed or removed between runs).
+    const stillExist = new Set(tests.map(t => t.id));
+    const toSelect = [...failedIds].filter(id => stillExist.has(id));
+    if (!toSelect.length) {
+      alert('None of the failed tests still exist in the workspace.');
+      return;
+    }
+    // Reflect the choice in the UI's selection state for clarity, then
+    // pass the list explicitly to runSelected so we don't depend on the
+    // setState propagating before the call goes out.
+    setSelected(new Set(toSelect));
+    setTab('tests');
+    runSelected(toSelect);
+  };
+
+  const deleteRun = async (runId) => {
+    await fetch(`${API}/history/${runId}`, { method: 'DELETE' });
+    await loadHistory();
+  };
+
+  if (loading) return (
+    <div className="empty" style={{marginTop:'4rem'}}>
+      <div className="spinner-inline" style={{width:32,height:32,borderWidth:3}} />
+      <p style={{marginTop:'1rem'}}>Loading...</p>
+    </div>
+  );
+
+  const dashboard = (
+    <div style={splitMode ? {padding:'0 1rem'} : {}}>
+      {/* Top bar */}
+      <div className="top-bar">
+        <div className="brand">
+          <img className="logo-ih" src="https://ideahelix.com/wp-content/uploads/2025/07/haeder_logo.svg" alt="ideaHelix" />
+          <img className="logo-fidium" src="https://d191tlbtp8692k.cloudfront.net/prod/fcom/global/Logo-Header-76x36.svg" alt="Fidium Fiber" />
+          <div className="divider" />
+          <span className="app-name">CCI Test Runner</span>
+        </div>
+        <div className="actions">
+          <button className="btn btn-ghost btn-sm" onClick={() => { loadTests(); loadHistory(); }}>Refresh</button>
+        </div>
+      </div>
+
+      <div className="header">
+        <h1>Test Runner</h1>
+        <div className="subtitle">Salesforce Communication Cloud - Python + Playwright Tests</div>
+      </div>
+
+      {/* Tabs — Tests + Run History (Latest Result merged into history). */}
+      <div className="tabs">
+        <div className={`tab ${tab === 'tests' ? 'active' : ''}`} onClick={() => setTab('tests')}>
+          Tests ({tests.length})
+          {running && <span style={{marginLeft:8}} className="spinner-inline" />}
+        </div>
+        <div className={`tab ${tab === 'history' ? 'active' : ''}`} onClick={() => { setTab('history'); loadHistory(); }}>
+          Run History ({history.length})
+        </div>
+      </div>
+
+      {/* ── Tests Tab ── */}
+      {tab === 'tests' && (
+        <div>
+          {/* Live progress panel (active during + just after a run). Sits
+              above the table so the dashboard always shows test status
+              even when the right pane is dismissed. */}
+          {liveProgress && (running || currentResult) && (
+            <LiveProgress
+              progress={liveProgress}
+              running={running}
+              onCancelAll={cancelAll}
+              onCancelCurrent={cancelCurrent}
+              tests={tests}
+              currentResult={currentResult}
+            />
+          )}
+          <div className="toolbar">
+            <button className="btn btn-primary" disabled={selected.size === 0 || running} onClick={() => runSelected()}>
+              {running ? <><span className="spinner-inline"/> Running...</> : <>Run Test{selected.size !== 1 ? 's' : ''} ({selected.size})</>}
+            </button>
+            {/* Worker-count selector — bounds the parallel runner. Disabled
+                while a run is in flight (the server already locked in the
+                count for the current run). */}
+            <label
+              title="Number of pytest subprocesses to run in parallel (1-4)"
+              style={{display:'inline-flex',alignItems:'center',gap:6,
+                      fontSize:'0.78rem',color:'var(--muted)'}}
+            >
+              Workers
+              <select
+                value={parallelismChoice}
+                onChange={(e) => setParallelismChoice(Number(e.target.value))}
+                disabled={running}
+                style={{padding:'4px 8px',border:'1px solid var(--border)',
+                        borderRadius:6,background:'var(--surface)',
+                        fontSize:'0.78rem',cursor: running ? 'not-allowed' : 'pointer'}}
+              >
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
+            </label>
+            {/* Browser selector — only meaningful when there's at least
+                one UI test in the current selection (API tests don't
+                launch a browser). Disabled and dimmed otherwise so the
+                control's relevance is obvious. */}
+            {(() => {
+              const hasUITest = [...selected].some(
+                id => tests.find(t => t.id === id)?.type === 'ui'
+              );
+              const disabled = running || !hasUITest;
+              return (
+                <label
+                  title={hasUITest
+                    ? "Browser to launch for UI tests (API tests ignore this)"
+                    : "Select at least one UI test to choose a browser"}
+                  style={{display:'inline-flex',alignItems:'center',gap:6,
+                          fontSize:'0.78rem',
+                          color: disabled ? 'var(--border)' : 'var(--muted)'}}
+                >
+                  Browser
+                  <select
+                    value={browserChoice}
+                    onChange={(e) => setBrowserChoice(e.target.value)}
+                    disabled={disabled}
+                    style={{padding:'4px 8px',
+                            border:'1px solid var(--border)',
+                            borderRadius:6,
+                            background: disabled ? 'var(--surface2)' : 'var(--surface)',
+                            fontSize:'0.78rem',
+                            cursor: disabled ? 'not-allowed' : 'pointer',
+                            opacity: disabled ? 0.55 : 1}}
+                  >
+                    <option value="chrome">Chrome</option>
+                    <option value="edge">Edge</option>
+                    <option value="firefox">Firefox</option>
+                    <option value="webkit">Safari (WebKit)</option>
+                  </select>
+                </label>
+              );
+            })()}
+            {running && runId && (
+              <button className="btn btn-danger" onClick={cancelAll}>
+                Cancel All
+              </button>
+            )}
+            {runId && splitDismissed && (
+              <button className="btn btn-primary" onClick={reopenSplit}
+                      title={running ? 'Re-open the embedded browser view' : 'Replay the last run'}
+                      style={{background:'var(--surface)',color:'var(--orange)',border:'1px solid var(--orange)'}}>
+                {running ? '▶ Watch Live' : '▶ Replay Last Run'}
+              </button>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={toggleAll}>
+              {selected.size === tests.length ? 'Deselect All' : 'Select All'}
+            </button>
+            <span style={{color:'var(--muted)',fontSize:'0.8rem',marginLeft:'auto'}}>
+              {selected.size} of {tests.length} selected
+            </span>
+          </div>
+
+          {tests.length === 0 ? (
+            <div className="empty">
+              <div className="icon">&#x1F4C2;</div>
+              <p>No tests found in <code>tests/ui/</code> or <code>tests/api/</code></p>
+            </div>
+          ) : (
+            <div className="card" style={{padding:0,overflow:'hidden'}}>
+              <table>
+                <thead><tr>
+                  <th style={{width:40}}><input type="checkbox" className="checkbox" checked={selected.size === tests.length && tests.length > 0} onChange={toggleAll} onClick={(e) => e.stopPropagation()}/></th>
+                  <th>Test</th>
+                  <th style={{width:70}}>Type</th>
+                  <th style={{width:60}}>Steps</th>
+                  <th style={{width:120}}>Modified</th>
+                </tr></thead>
+                <tbody>
+                  {tests.map(t => (
+                    <tr key={t.id} onClick={() => toggle(t.id)} style={{cursor:'pointer'}}>
+                      <td><input type="checkbox" className="checkbox" checked={selected.has(t.id)} onChange={() => {}} onClick={(e) => e.stopPropagation()} /></td>
+                      <td>
+                        <div className="test-name-row">
+                          <div style={{flex:1, minWidth:0}}>
+                            <div className="test-name">{t.display_name || t.filename}</div>
+                            {t.display_name && (
+                              <div className="test-filename-sub">{t.filename}</div>
+                            )}
+                            {!t.display_name && t.description && (
+                              <div className="desc-tooltip">{t.description.slice(0, 140)}{t.description.length > 140 ? '...' : ''}</div>
+                            )}
+                          </div>
+                          <button
+                            className="info-btn"
+                            title="View objective and steps"
+                            onClick={(e) => { e.stopPropagation(); setDetailTest(t); }}
+                          >i</button>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`type-badge ${t.type || 'ui'}`}>{(t.type || 'ui').toUpperCase()}</span>
+                      </td>
+                      <td style={{color:'var(--muted)'}}>{(t.steps && t.steps.length) || '—'}</td>
+                      <td style={{color:'var(--muted)',fontSize:'0.8rem'}}>{timeAgo(t.modified)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── History Tab ── */}
+      {tab === 'history' && (
+        <div>
+          {history.length === 0 ? (
+            <div className="empty">
+              <div className="icon">&#x1F4C1;</div>
+              <p>No past runs yet.</p>
+            </div>
+          ) : (
+            <div className="card" style={{padding:0,overflow:'hidden'}}>
+              <table>
+                <thead><tr>
+                  <th>Run ID</th>
+                  <th>Tests</th>
+                  <th>Status</th>
+                  <th style={{width:80}}>Passed</th>
+                  <th style={{width:80}}>Failed</th>
+                  {/* Browser column — surfaces which browser the run
+                      used. Falls back to "—" for older runs predating
+                      this field. */}
+                  <th style={{width:90}}>Browser</th>
+                  <th style={{width:100}}>Duration</th>
+                  <th style={{width:200}}>Date</th>
+                  {/* Report column is wider + nowrap so View, download, and
+                      Re-run Failed all sit on one line. Delete moved into
+                      its own trailing Actions column so the destructive
+                      action isn't tangled up with the report links. */}
+                  <th style={{width:260}}>Report</th>
+                  <th style={{width:60}}>Actions</th>
+                </tr></thead>
+                <tbody>
+                  {history.map(h => {
+                    // Prefer the combined per-run report (one self-contained
+                    // HTML with all tests in a gutter). Fall back to the first
+                    // per-test report URL for older history entries that pre-
+                    // date the combined-report feature.
+                    const reportUrl = h.combined_report_url
+                      || (h.report_urls && h.report_urls[0])
+                      || '';
+                    return (
+                      <tr key={h.run_id}>
+                        <td><code style={{fontSize:'0.72rem',color:'var(--muted)'}}>{h.run_id}</code></td>
+                        <td>{h.tests?.length || 0} file{(h.tests?.length || 0) !== 1 ? 's' : ''}</td>
+                        <td><span className={`badge badge-${h.status}`}>{h.status}</span></td>
+                        <td style={{color:'var(--success)',fontWeight:600}}>{h.passed || 0}</td>
+                        <td style={{color:(h.failed||0)>0?'var(--danger)':'var(--muted)',fontWeight:600}}>{h.failed || 0}</td>
+                        <td style={{color:'var(--muted)',fontSize:'0.78rem',whiteSpace:'nowrap'}}>
+                          {h.browser
+                            ? (h.browser === 'webkit'
+                                ? 'Safari (WebKit)'
+                                : h.browser.charAt(0).toUpperCase() + h.browser.slice(1))
+                            : '—'}
+                        </td>
+                        <td style={{color:'var(--muted)'}}>{fmtDuration(h.duration_s)}</td>
+                        <td style={{color:'var(--muted)',fontSize:'0.8rem'}}>{fmtDate(h.started_at)}</td>
+                        {/* Report column — View / download / Re-run Failed
+                            all stay on one line thanks to nowrap. Delete
+                            has been promoted to its own trailing column
+                            below. */}
+                        <td style={{whiteSpace:'nowrap'}}>
+                          {reportUrl ? (
+                            <>
+                              <a href={reportUrl} target="_blank" rel="noopener noreferrer"
+                                 className="btn btn-primary btn-sm"
+                                 style={{textDecoration:'none', fontSize:'0.72rem', marginRight:4}}
+                                 title="Open the combined run report (all tests, one HTML)">
+                                View
+                              </a>
+                              <a href={reportUrl}
+                                 download={`run_${h.run_id}.html`}
+                                 className="btn btn-ghost btn-sm"
+                                 style={{textDecoration:'none', fontSize:'0.72rem', marginRight:4}}
+                                 title="Download the self-contained report (works offline)">
+                                &#x2B07;
+                              </a>
+                            </>
+                          ) : (
+                            <span style={{fontSize:'0.72rem',color:'var(--muted)',marginRight:4}}>—</span>
+                          )}
+                          {/* Re-run failed: only visible if this run had
+                              at least one failure. Disabled mid-run so we
+                              don't start a second run on top. */}
+                          {(h.failed || 0) > 0 && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              disabled={running}
+                              onClick={() => rerunFailedFromHistory(h)}
+                              title="Submit a new run containing only this run's failed tests"
+                              style={{fontSize:'0.72rem'}}
+                            >
+                              Re-run Failed
+                            </button>
+                          )}
+                        </td>
+                        {/* Trailing Actions column — destructive action
+                            isolated so it isn't accidentally clicked. */}
+                        <td>
+                          <button className="btn btn-danger btn-sm"
+                                  onClick={() => deleteRun(h.run_id)}
+                                  title="Delete this run from history">Del</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Test detail modal ── */}
+      {detailTest && (
+        <TestDetailModal test={detailTest} onClose={() => setDetailTest(null)} />
+      )}
+    </div>
+  );
+
+  // When a run is active OR just finished, render in split layout.
+  // MultiViewer handles BOTH live frames (during run) and recorded
+  // playback (after run). Tiles stay mounted across the running→done
+  // transition: each tile swaps from a live screencast / terminal log
+  // to a recorded <video> or static log automatically based on each
+  // test's status. This means the user keeps seeing the same physical
+  // tile they were watching live — no "video disappeared into a
+  // separate replay pane" surprise.
+  if (splitMode) {
+    const rightPane = (
+      <MultiViewer
+        liveProgress={liveProgress}
+        running={running}
+        runId={runId}
+        tests={tests}
+        onClose={closeSplit}
+        onCancelAll={cancelAll}
+        onCancelSlot={cancelSlot}
+        onRerunFailed={() => rerunFailedFromHistory(currentResult)}
+        currentResult={currentResult}
+      />
+    );
+
+    return (
+      <div className="split-shell">
+        <div className={`split-left ${leftCollapsed ? 'collapsed' : ''}`}>
+          <div className="collapse-bar">
+            <button
+              className="collapse-btn"
+              onClick={() => setLeftCollapsed(!leftCollapsed)}
+              title={leftCollapsed ? 'Expand panel' : 'Collapse panel'}
+            >
+              {leftCollapsed ? '»' : '«'}
+            </button>
+          </div>
+          <div className="dashboard-scroll">{dashboard}</div>
+        </div>
+        <div className="split-right">{rightPane}</div>
+      </div>
+    );
+  }
+  return dashboard;
+}
+
+
+// ─── Shared helpers for terminal log rendering ───
+//
+// The API client prints each request/response as a single line prefixed
+// with "REQ : " or "RES : " (so they survive being piped through SSE
+// log events). The frontend collapses those single-line bodies back into
+// pretty-printed boxes so a multi-KB Salesforce response is actually
+// readable instead of a wall of compact JSON.
+
+function JsonBox({ label, content }) {
+  // Try to parse + pretty-print. Tolerate truncated bodies like
+  // '{"foo":"bar" … (truncated, 12345 chars total)'.
+  let pretty = content;
+  let parsed = false;
+  const tryParse = (txt) => {
+    try {
+      const obj = JSON.parse(txt);
+      pretty = JSON.stringify(obj, null, 2);
+      parsed = true;
+    } catch (e) { /* leave pretty = original */ }
+  };
+  tryParse(content);
+  if (!parsed) {
+    const m = content.match(/^([\s\S]+?)\s+…\s+\(truncated[^)]*\)$/);
+    if (m) {
+      tryParse(m[1]);
+      if (parsed) pretty += '\n… (truncated)';
+    }
+  }
+  const kind = (label || '').toLowerCase();
+  return (
+    <div className={`json-box ${kind}`}>
+      <div className="json-box-label">{label}</div>
+      <pre>{pretty}</pre>
+    </div>
+  );
+}
+
+function classifyTerminalLine(line) {
+  if (/^\s*▶\s*Step\s/.test(line))                  return 'ln-step';
+  if (/^\s*✓\s*Step.*PASSED/i.test(line))            return 'ln-pass';
+  if (/^\s*✗\s*Step.*FAIL/i.test(line))              return 'ln-fail';
+  if (/^\s*Traceback|^\s*E\s+\w|FAILED|ERROR/.test(line)) return 'ln-fail';
+  if (/^=+|^-+|short test summary|collected\s+\d|test session starts/.test(line)) return 'ln-dim';
+  return '';
+}
+
+function renderTerminalLines(text) {
+  // Walks the captured pytest stdout and returns an array of React
+  // nodes. REQ/RES/ERR single-line bodies get rendered as JsonBox;
+  // everything else is a plain colour-classified <div>.
+  const lines = (text || '').split('\n');
+  const out = [];
+  lines.forEach((ln, i) => {
+    const reqMatch = ln.match(/^\s*REQ\s*:?\s*(.*)$/);
+    const resMatch = ln.match(/^\s*RES\s*:?\s*(.*)$/);
+    const errMatch = ln.match(/^\s*ERR\s*:?\s*(.*)$/);
+    if (reqMatch && reqMatch[1]) {
+      out.push(<JsonBox key={i} label="REQ" content={reqMatch[1]} />);
+    } else if (resMatch && resMatch[1]) {
+      out.push(<JsonBox key={i} label="RES" content={resMatch[1]} />);
+    } else if (errMatch && errMatch[1]) {
+      out.push(<JsonBox key={i} label="ERR" content={errMatch[1]} />);
+    } else {
+      out.push(<div key={i} className={classifyTerminalLine(ln)}>{ln || ' '}</div>);
+    }
+  });
+  return out;
+}
+
+
+// ─── Terminal log view — live pytest stdout for API tests ───
+// Subscribes to `item.liveLog` (which the SSE `log` handler appends to)
+// and renders each line in a terminal-style window with auto-scroll and
+// syntax-colouring. Used while an API test is running, in place of the
+// browser screencast.
+function TerminalLogView({ item, testName, onClose }) {
+  const bodyRef = useRef(null);
+  const log = item?.liveLog || '';
+  const lines = log.split('\n');
+
+  // Auto-scroll to bottom whenever new lines arrive — but pause if the
+  // user has scrolled up to read something.
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    const el = bodyRef.current;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (nearBottom) el.scrollTop = el.scrollHeight;
+  }, [log]);
+
+  const empty = lines.length === 0 || (lines.length === 1 && !lines[0]);
+
+  return (
+    <>
+      <div className="screencast-bar">
+        <div className="bar-left">
+          <span style={{whiteSpace:'nowrap'}}>
+            <span className="live-dot" /> LIVE · {lines.length} line{lines.length === 1 ? '' : 's'}
+          </span>
+          {testName && (
+            <span className="test-name-chip">
+              {testName} <span className="type-badge api" style={{marginLeft:6,verticalAlign:'middle'}}>API</span>
+            </span>
+          )}
+        </div>
+        <button className="bar-close-btn" onClick={onClose}>Close</button>
+      </div>
+      <div className="terminal-pane">
+        <div className="terminal-window">
+          <div className="terminal-titlebar">
+            <span className="dot r" /><span className="dot y" /><span className="dot g" />
+            <span className="label">pytest · {item?.filename || ''}</span>
+          </div>
+          <div className="terminal-body" ref={bodyRef}>
+            {empty ? (
+              <span className="ln-dim">Waiting for first line of output…</span>
+            ) : (
+              renderTerminalLines(log)
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+// ─── ScreencastTile — single live frame stream (no chrome) ───
+// Mounted inside a MultiViewer tile. Subscribes to /ws/screencast/{id}
+// for the duration of that test; closes the socket as soon as the parent
+// unmounts the tile (test finished or user switched to a different test).
+function ScreencastTile({ testRunId }) {
+  const imgRef = useRef(null);
+  const [frameCount, setFrameCount] = useState(0);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    if (!testRunId) return;
+    const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${scheme}//${window.location.host}/ws/screencast/${testRunId}`);
+    ws.onopen  = () => setConnected(true);
+    ws.onclose = () => setConnected(false);
+    ws.onerror = () => setConnected(false);
+    ws.onmessage = (ev) => {
+      if (!ev.data) return;            // keep-alive ping
+      if (imgRef.current) {
+        imgRef.current.src = `data:image/jpeg;base64,${ev.data}`;
+        setFrameCount((c) => c + 1);
+      }
+    };
+    return () => { try { ws.close(); } catch (e) { /* noop */ } };
+  }, [testRunId]);
+
+  return (
+    <div className="mv-tile-body screencast">
+      {frameCount === 0 ? (
+        <div className="screencast-placeholder" style={{padding:'1rem',fontSize:'0.78rem'}}>
+          <div className="spinner-inline" />
+          <div>{connected ? 'Waiting for first frame…' : 'Connecting…'}</div>
+        </div>
+      ) : null}
+      <img ref={imgRef} alt="Live test stream" style={frameCount === 0 ? {display:'none'} : {}} />
+    </div>
+  );
+}
+
+
+// ─── TerminalTile — single in-tile terminal log ───
+// Mounted inside a MultiViewer tile for an API test. Renders the
+// running test's captured stdout (REQ/RES bodies pretty-printed via
+// JsonBox); auto-scrolls unless the user has scrolled up.
+function TerminalTile({ item }) {
+  const bodyRef = useRef(null);
+  const log = item?.liveLog || '';
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    const el = bodyRef.current;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (nearBottom) el.scrollTop = el.scrollHeight;
+  }, [log]);
+  const empty = !log;
+  return (
+    <div className="mv-tile-body terminal" ref={bodyRef}>
+      {empty ? (
+        <span className="ln-dim">Waiting for first line of output…</span>
+      ) : (
+        renderTerminalLines(log)
+      )}
+    </div>
+  );
+}
+
+
+// ─── MultiViewer — grid of live + replayable tests ───
+// Single component for the whole run lifecycle (live during the run,
+// recorded playback after). Two modes:
+//   GRID    up to `parallelism` tiles, one per worker slot. Each tile
+//           shows the LAST test that occupied that slot — live frames
+//           if it's still running, recorded video/log if it finished.
+//           If a slot ran multiple tests sequentially (queue had more
+//           items than workers), only the most recent test is visible
+//           in the grid view.
+//   SINGLE  one big tile + dropdown listing EVERY test that ran in
+//           this run. Lets the user revisit any test by name, not just
+//           the four last-per-slot ones.
+//
+// Per-tile actions: maximize (grid mode only) and Stop (live only,
+// kills just that worker's current test so it picks the next).
+function MultiViewer({ liveProgress, running, runId, tests, onClose, onCancelAll, onCancelSlot, onRerunFailed, currentResult }) {
+  const [viewMode, setViewMode] = useState('grid');        // 'grid' | 'single'
+  // In single mode, focus is by TEST INDEX (1-based) — not slot —
+  // so the user can revisit any of N tests, not just the workers'
+  // current/last occupants.
+  const [singleFocusIdx, setSingleFocusIdx] = useState(null);
+  const [maximized, setMaximized] = useState(null);         // slot # if maximized, else null
+
+  const items = liveProgress?.items || [];
+  const slots = liveProgress?.slots || {};
+  const parallelism = Math.max(1, liveProgress?.parallelism || 1);
+  const queue = liveProgress?.queue || { pending:0, in_flight:0, completed:0 };
+  const totalTests = items.length || 0;
+
+  // Build one entry per worker slot — the test currently or most
+  // recently occupying it. The new lifecycle keeps slots[N] populated
+  // even after a test completes (until the next test displaces it).
+  const slotEntries = [];
+  for (let s = 0; s < parallelism; s++) {
+    const idx = slots[s];          // 1-based, or null/undefined
+    const item = (idx != null) ? items[idx - 1] : null;
+    slotEntries.push({ slot: s, item });
+  }
+
+  // Pick a sensible initial focus the first time we render single mode:
+  // prefer the most-recently-started running test, else fall back to the
+  // first item.
+  useEffect(() => {
+    if (singleFocusIdx != null) return;
+    const running = items.find(it => it?.status === 'running');
+    const first = items[0];
+    const pick = (running || first);
+    if (pick) setSingleFocusIdx(pick.index);
+  }, [items, singleFocusIdx]);
+
+  let visibleTiles;
+  if (viewMode === 'single') {
+    const focused = items.find(it => it.index === singleFocusIdx) || items[0] || null;
+    visibleTiles = focused ? [{ slot: focused.slot, item: focused }] : [];
+  } else if (maximized != null) {
+    visibleTiles = [slotEntries[maximized]];
+  } else {
+    visibleTiles = slotEntries;
+  }
+
+  const gridClass = (() => {
+    if (visibleTiles.length === 1) return 'grid-1';
+    if (visibleTiles.length === 2) return 'grid-2';
+    return 'grid-4';
+  })();
+
+  // Dropdown labels show test index, name, type and status so the user
+  // can pick by what they remember.
+  const dropdownLabel = (it) => {
+    if (!it) return '';
+    const friendly = it.display_name || it.filename || 'test';
+    const status = (it.status || 'waiting').toUpperCase();
+    const type = (it.type || 'ui').toUpperCase();
+    return `${it.index}. [${type}] ${friendly} · ${status}`;
+  };
+
+  const failedCount = items.filter(it => it.status === 'failed').length;
+
+  return (
+    <div className="multiviewer">
+      <div className="mv-toolbar">
+        {running ? (
+          <span>
+            <span className="live-dot" style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#16A34A',marginRight:6,animation:'pulse 1.5s infinite'}} />
+            LIVE
+          </span>
+        ) : (
+          <span>
+            <span className="live-dot done" style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#FE763C',marginRight:6}} />
+            REPLAY
+          </span>
+        )}
+        <span className="mv-stat"><strong>{queue.in_flight}</strong>/{parallelism} active</span>
+        <span className="mv-stat"><strong>{queue.completed}</strong>/{totalTests} done</span>
+        {queue.pending > 0 && <span className="mv-stat"><strong>{queue.pending}</strong> queued</span>}
+        <div className="mv-modes">
+          <button
+            className={viewMode === 'grid' ? 'active' : ''}
+            onClick={() => { setViewMode('grid'); setMaximized(null); }}
+            title="Show one tile per worker slot — up to 4 simultaneously"
+          >Grid</button>
+          <button
+            className={viewMode === 'single' ? 'active' : ''}
+            onClick={() => { setViewMode('single'); setMaximized(null); }}
+            title="Focus on any single test (pick from dropdown — every test in the run)"
+          >Single</button>
+        </div>
+        {viewMode === 'single' && (
+          <select
+            value={singleFocusIdx ?? ''}
+            onChange={(e) => setSingleFocusIdx(Number(e.target.value))}
+            title="Pick any test that ran in this run"
+          >
+            {items.map(it => (
+              <option key={it.index} value={it.index}>{dropdownLabel(it)}</option>
+            ))}
+          </select>
+        )}
+        <div className="mv-spacer" />
+        {running && (
+          <button className="bar-close-btn" onClick={onCancelAll} title="Cancel the entire run">Stop all</button>
+        )}
+        {/* View Full Report — surfaces the combined HTML once the run
+            finishes, right inside the execution pane. Same target as
+            the LiveProgress card + Run History row buttons. */}
+        {!running && currentResult?.combined_report_url && (
+          <a
+            href={currentResult.combined_report_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bar-close-btn"
+            style={{borderColor:'#1B4F72',color:'#fff',background:'#1B4F72',textDecoration:'none'}}
+            title="Open the combined report (every test, one HTML)"
+          >View Full Report ↗</a>
+        )}
+        {!running && failedCount > 0 && onRerunFailed && (
+          <button
+            className="bar-close-btn"
+            onClick={onRerunFailed}
+            title="Submit a new run containing only the failed tests"
+            style={{borderColor:'#FE763C',color:'#FE763C'}}
+          >Re-run Failed ({failedCount})</button>
+        )}
+        <button className="bar-close-btn" onClick={onClose}>Close</button>
+      </div>
+
+      <div className={`mv-grid ${gridClass} ${viewMode === 'single' ? 'mode-single' : ''}`}>
+        {visibleTiles.map((entry, i) => {
+          if (!entry) return null;
+          const slot = entry.slot;
+          const isMaximized = maximized === slot;
+          return (
+            <MultiViewerTile
+              key={`${slot}-${entry.item?.index ?? 'empty'}-${i}`}
+              slot={slot}
+              item={entry.item}
+              running={running}
+              showMaximize={viewMode === 'grid'}
+              maximized={isMaximized}
+              onMaximize={() => setMaximized(isMaximized ? null : slot)}
+              onCancelSlot={() => onCancelSlot(slot)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+// ─── Resolve a test's recorded video URL from its report_urls ───
+// Per-test HTML report paths look like:
+//   test_report_0521_113900_a1b2.html       (UI, with new uuid suffix)
+//   test_report_0521_113900.html            (UI, pre-uuid layout)
+//   test_report_api_0521_113900_a1b2.html   (API — no video, separate folder)
+// The matching .webm lives at:
+//   /screenshots/Test_CCI_UI_{ts}/recording_{ts}.webm
+// ts is the entire timestamp+uuid segment between "test_report_" and ".html".
+function deriveVideoUrl(item) {
+  const reportUrl = (item?.report_urls || [])[0] || '';
+  if (!reportUrl) return '';
+  const m = reportUrl.match(/test_report_(?:api_)?([0-9a-zA-Z_]+)\.html/);
+  if (!m) return '';
+  const ts = m[1];
+  const type = item?.type || 'ui';
+  if (type === 'api') return '';     // API tests have no video recording
+  return `/screenshots/Test_CCI_UI_${ts}/recording_${ts}.webm`;
+}
+
+
+// ─── Recorded-video tile (post-run) ───
+// Mounted in place of ScreencastTile once a UI test transitions from
+// 'running' to passed/failed/cancelled. The video is the .webm Playwright
+// recorded; ffmpeg compression in the conftest hook can take a few
+// seconds to finalize, so we poll-retry on load error.
+function ReplayVideoTile({ videoUrl }) {
+  const videoRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!videoUrl) { setReady(true); return; }
+    setReady(false); setAttempt(0);
+    let cancelled = false;
+    let timer = null;
+    const tryLoad = (n) => {
+      if (cancelled) return;
+      const v = videoRef.current;
+      if (!v) {
+        timer = setTimeout(() => tryLoad(n), 400);
+        return;
+      }
+      v.onloadeddata = () => { if (!cancelled) setReady(true); };
+      v.onerror = () => {
+        if (cancelled) return;
+        if (n < 12) {
+          setAttempt(n + 1);
+          timer = setTimeout(() => tryLoad(n + 1), 1500);
+        }
+      };
+      v.src = `${videoUrl}?t=${Date.now()}`;
+    };
+    tryLoad(0);
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [videoUrl]);
+
+  return (
+    <div className="mv-tile-body screencast">
+      {!ready && (
+        <div className="screencast-placeholder" style={{padding:'1rem',fontSize:'0.78rem'}}>
+          <div className="spinner-inline" />
+          <div>{attempt > 0 ? `Compressing (retry ${attempt}/12)…` : 'Preparing video…'}</div>
+        </div>
+      )}
+      <video ref={videoRef} controls preload="auto" style={ready ? {} : {display:'none'}} />
+    </div>
+  );
+}
+
+
+function MultiViewerTile({ slot, item, running, showMaximize, maximized, onMaximize, onCancelSlot }) {
+  const empty = !item;
+  const type = item?.type || 'ui';
+  const status = item?.status || 'idle';
+  const isLive = status === 'running';
+  const isDone = ['passed', 'failed', 'cancelled'].includes(status);
+  const name = item?.display_name || item?.filename || '';
+  const videoUrl = (type === 'ui' && isDone) ? deriveVideoUrl(item) : '';
+  const reportUrl = (item?.report_urls || [])[0] || '';
+
+  let body;
+  if (empty) {
+    body = <div className="mv-tile-empty-msg">No test in this slot yet.</div>;
+  } else if (isLive) {
+    body = (type === 'api')
+      ? <TerminalTile item={item} />
+      : (item.test_run_id
+          ? <ScreencastTile testRunId={item.test_run_id} />
+          : (
+            <div className="mv-tile-empty-msg">
+              <div>
+                <div className="spinner-inline" style={{width:18,height:18,borderWidth:2}} />
+                <div style={{marginTop:6}}>Starting browser…</div>
+              </div>
+            </div>
+          ));
+  } else if (isDone) {
+    // Recorded playback: UI = video, API = static log (already in item.liveLog/output).
+    body = (type === 'api')
+      ? <TerminalTile item={item} />
+      : <ReplayVideoTile videoUrl={videoUrl} />;
+  } else {
+    body = (
+      <div className="mv-tile-empty-msg">
+        <div>Waiting in queue (position {item.index})…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mv-tile ${empty ? 'empty' : ''}`}>
+      <div className="mv-tile-header">
+        <span className="slot-tag">SLOT {slot + 1}</span>
+        {!empty && (
+          <span className={`type-badge ${type}`} style={{fontSize:'0.6rem'}}>
+            {type.toUpperCase()}
+          </span>
+        )}
+        <span className="tile-name" title={name}>{name || 'idle — waiting for next test'}</span>
+        <span className={`mv-status-pill ${status}`}>{status}</span>
+        <div className="tile-actions">
+          {isDone && reportUrl && (
+            <a href={reportUrl} target="_blank" rel="noopener noreferrer"
+               className="tile-btn"
+               style={{textDecoration:'none'}}
+               title="Open this test's full HTML report in a new tab">
+              Report ↗
+            </a>
+          )}
+          {isLive && (
+            <button className="tile-btn danger" onClick={onCancelSlot} title="Cancel just this test — worker will pick the next queued test">
+              Stop
+            </button>
+          )}
+          {showMaximize && (
+            <button className="tile-btn" onClick={onMaximize} title={maximized ? 'Restore grid' : 'Maximize'}>
+              {maximized ? '⤡' : '⤢'}
+            </button>
+          )}
+        </div>
+      </div>
+      {body}
+    </div>
+  );
+}
+
+
+// ─── Live screencast viewer ───
+// Opens a WebSocket to /ws/screencast/{runId} and renders each incoming
+// base64 JPEG into an <img>. The bridge stays open for the entire run;
+// frames arrive at native chromium compositor rate while the test drives
+// the headless Chrome on the server.
+function ScreencastViewer({ runId, testName, onClose }) {
+  const imgRef = useRef(null);
+  const [connected, setConnected] = useState(false);
+  const [frameCount, setFrameCount] = useState(0);
+
+  useEffect(() => {
+    if (!runId) return;
+    const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${scheme}//${window.location.host}/ws/screencast/${runId}`);
+
+    ws.onopen = () => setConnected(true);
+    ws.onmessage = (ev) => {
+      // Empty string = keep-alive ping (sent every 30s of idle).
+      if (!ev.data) return;
+      if (imgRef.current) {
+        imgRef.current.src = `data:image/jpeg;base64,${ev.data}`;
+        setFrameCount((c) => c + 1);
+      }
+    };
+    ws.onclose = () => setConnected(false);
+    ws.onerror = () => setConnected(false);
+
+    return () => {
+      try { ws.close(); } catch (e) { /* noop */ }
+    };
+  }, [runId]);
+
+  return (
+    <>
+      <div className="screencast-bar">
+        <div className="bar-left">
+          <span style={{whiteSpace:'nowrap'}}>
+            <span className={`live-dot ${connected ? '' : 'off'}`} />
+            {connected ? 'LIVE' : 'connecting...'} · {frameCount} frame{frameCount === 1 ? '' : 's'}
+          </span>
+          {testName && <span className="test-name-chip">{testName}</span>}
+        </div>
+        <button className="bar-close-btn" onClick={onClose} title="Stop watching and return to dashboard">
+          Close
+        </button>
+      </div>
+      <div className="screencast-frame">
+        {frameCount === 0 ? (
+          <div className="screencast-placeholder">
+            <div className="spinner-inline" />
+            <div>Waiting for the first frame…</div>
+            <div style={{fontSize:'0.75rem', marginTop:'0.5rem', opacity:0.7}}>
+              Chrome is starting up on the server. Frames will appear as soon as
+              the test navigates to the first page.
+            </div>
+          </div>
+        ) : null}
+        <img ref={imgRef} alt="Live test stream" style={frameCount === 0 ? {display:'none'} : {}} />
+      </div>
+    </>
+  );
+}
+
+
+// ─── Post-run video playback ───
+// After the run finishes, the right pane stays mounted and swaps from
+// the live <img> stream to a <video> player loading the recorded .webm
+// from /screenshots/Test_CCI_UI_{ts}/recording_{ts}.webm. The timestamp
+// is parsed from the report URL ("test_report_{ts}.html"). If multiple
+// tests ran, a dropdown lets the user pick which one to replay.
+function RunPlayback({ result, liveProgress, tests, onClose, onRerunFailed }) {
+  // Build one entry per completed test. UI tests get a videoUrl (the .webm
+  // recording, derived from the report URL timestamp). API tests get no
+  // video — they show their captured log instead.
+  const completedItems = (liveProgress?.items || [])
+    .filter(it => (it.report_urls || []).length > 0 || ['passed','failed','cancelled'].includes(it.status));
+
+  const entries = completedItems.map(it => {
+    const reportUrl = (it.report_urls || [])[0] || '';
+    const m = reportUrl.match(/test_report_(?:api_)?([0-9_]+)\.html/);
+    const ts = m ? m[1] : null;
+    const type = it.type || (it.filename?.includes('_api') ? 'api' : 'ui');
+    const videoUrl = (type === 'ui' && ts)
+      ? `/screenshots/Test_CCI_UI_${ts}/recording_${ts}.webm`
+      : '';
+    const lookup = tests.find(t => t.id === it.id || t.filename === it.filename);
+    return {
+      id: it.id,
+      filename: it.filename,
+      type,
+      friendlyName: lookup?.display_name || it.display_name || it.filename,
+      status: it.status,
+      reportUrl,
+      videoUrl,
+      log: it.liveLog || it.output || '',
+    };
+  });
+
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [videoReady, setVideoReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const videoRef = useRef(null);
+
+  const active = entries[activeIdx] || entries[0] || null;
+  const videoUrl = active?.videoUrl || '';
+
+  // Poll-load the video for UI runs only — API tests have no recording,
+  // they get the captured log directly. ffmpeg compression on UI runs
+  // can take a beat after the SSE `done` event, so retry briefly.
+  useEffect(() => {
+    if (!videoUrl) { setVideoReady(true); return; }   // nothing to load — don't spin
+    setVideoReady(false);
+    setAttempt(0);
+    let cancelled = false;
+    let timer = null;
+
+    const tryLoad = (n) => {
+      if (cancelled) return;
+      if (!videoRef.current) {
+        timer = setTimeout(() => tryLoad(n), 400);
+        return;
+      }
+      const v = videoRef.current;
+      v.onloadeddata = () => { if (!cancelled) setVideoReady(true); };
+      v.onerror = () => {
+        if (cancelled) return;
+        if (n < 12) {
+          setAttempt(n + 1);
+          timer = setTimeout(() => tryLoad(n + 1), 1500);
+        }
+      };
+      v.src = `${videoUrl}?t=${Date.now()}`;
+    };
+    tryLoad(0);
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [videoUrl]);
+
+  if (!active) {
+    return (
+      <>
+        <div className="screencast-bar">
+          <div className="bar-left">
+            <span><span className="live-dot done" /> Run complete</span>
+          </div>
+          <button className="bar-close-btn" onClick={onClose}>Close</button>
+        </div>
+        <div className="screencast-frame">
+          <div className="screencast-placeholder">
+            <div>No video available — the run produced no report.</div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const statusLabel = active.status === 'passed' ? 'PASSED'
+                    : active.status === 'failed' ? 'FAILED'
+                    : (active.status || 'DONE').toUpperCase();
+  const statusColor = active.status === 'passed' ? '#16A34A'
+                    : active.status === 'failed' ? '#DC2626'
+                    : '#FE763C';
+
+  // API tests have no video — render the captured pytest log instead.
+  const isApi = active.type === 'api';
+
+  return (
+    <>
+      <div className="screencast-bar">
+        <div className="bar-left">
+          <span style={{whiteSpace:'nowrap'}}>
+            <span className="live-dot done" /> Replay
+            <span style={{color:statusColor, fontWeight:700, marginLeft:8}}>{statusLabel}</span>
+          </span>
+          {entries.length > 1 ? (
+            <select
+              value={activeIdx}
+              onChange={(e) => setActiveIdx(Number(e.target.value))}
+              style={{background:'#0f0f12',color:'#fff',border:'1px solid #3a3a3e',
+                      borderRadius:6,padding:'4px 8px',fontSize:'0.78rem',
+                      fontFamily:'Inter,sans-serif',maxWidth:'60%'}}>
+              {entries.map((e, i) => (
+                <option key={i} value={i}>
+                  [{(e.type || 'ui').toUpperCase()}] {e.friendlyName}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="test-name-chip">
+              {active.friendlyName}
+              <span className={`type-badge ${active.type || 'ui'}`} style={{marginLeft:8,verticalAlign:'middle'}}>
+                {(active.type || 'ui').toUpperCase()}
+              </span>
+            </span>
+          )}
+        </div>
+        <button className="bar-close-btn" onClick={onClose}>Close</button>
+      </div>
+      {isApi ? (
+        <div className="terminal-pane">
+          <div className="terminal-window">
+            <div className="terminal-titlebar">
+              <span className="dot r" /><span className="dot y" /><span className="dot g" />
+              <span className="label">pytest log · {active.filename}</span>
+            </div>
+            <div className="terminal-body">
+              {active.log
+                ? renderTerminalLines(active.log)
+                : <span className="ln-dim">No log captured for this test.</span>}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="screencast-frame">
+          {!videoReady && (
+            <div className="screencast-placeholder">
+              <div className="spinner-inline" />
+              <div>Preparing video…</div>
+              <div style={{fontSize:'0.72rem',marginTop:'0.5rem',opacity:0.7}}>
+                {attempt > 0
+                  ? `Compressing (retry ${attempt}/12)…`
+                  : 'Finalizing the recording. This usually takes a few seconds.'}
+              </div>
+            </div>
+          )}
+          {/* Loaded but paused — user clicks play when they're ready. */}
+          <video
+            ref={videoRef}
+            controls
+            preload="auto"
+            style={videoReady ? {} : {display:'none'}}
+          />
+        </div>
+      )}
+      <div className="playback-actions">
+        {active.reportUrl && (
+          <a href={active.reportUrl} target="_blank" rel="noopener noreferrer">
+            View Full Report ↗
+          </a>
+        )}
+        {videoUrl && (
+          <a href={videoUrl} download className="secondary">
+            Download Video
+          </a>
+        )}
+        {/* Re-run failed: only surfaces when the parent run actually has
+            failures. Manual-only (per project policy: no auto-retry). */}
+        {onRerunFailed && entries.some(e => e.status === 'failed') && (
+          <button onClick={onRerunFailed} title="Re-run only the failing tests from this run">
+            Re-run Failed
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+
+// ─── Test Detail Modal ───
+// Shows the objective + one-liner steps. The dashboard parses the
+// test's .py file via AST to pull metadata directly:
+//   - display_name : first line of the Test class docstring
+//   - tags         : ``TAGS = [...]`` class attribute
+//   - objective    : ``OBJECTIVE = "..."`` class attribute
+//   - steps        : every ``start_step(N, "label")`` / ``sf.step(N, ...)``
+//                    call, in number order
+// No more sibling YAML files — one source of truth.
+function TestDetailModal({ test, onClose }) {
+  // Close on Esc
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const objective = test.objective || test.description || '';
+  const steps = test.steps || [];
+  const hasMetadata = !!(test.objective || (test.steps && test.steps.length));
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div style={{flex:1, minWidth:0}}>
+            <h3>{test.display_name || test.filename}</h3>
+            {test.display_name && (
+              <div className="modal-sub">{test.filename}</div>
+            )}
+          </div>
+          <button className="modal-close" onClick={onClose} title="Close (Esc)">&times;</button>
+        </div>
+        <div className="modal-body">
+          {!hasMetadata && (
+            <div className="no-yaml">
+              No metadata exposed by this test. Add{' '}
+              <code>TAGS = [...]</code> and{' '}
+              <code>OBJECTIVE = "..."</code> class attributes (plus a
+              one-line class docstring as the name) to the test file
+              and the dashboard will pick them up automatically — no
+              restart needed.
+            </div>
+          )}
+          {objective && (
+            <>
+              <h4>Objective</h4>
+              <div className="objective">{objective}</div>
+            </>
+          )}
+          {steps.length > 0 && (
+            <>
+              <h4>Steps ({steps.length})</h4>
+              <ol className="steps-list">
+                {steps.map((s, i) => <li key={i}>{s}</li>)}
+              </ol>
+            </>
+          )}
+          {test.tags && test.tags.length > 0 && (
+            <div className="tags">
+              {test.tags.map((tag, i) => <span key={i} className="tag">{tag}</span>)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── Live Progress Component ───
+function LiveProgress({ progress, running, onCancelAll, onCancelCurrent, tests, currentResult }) {
+  // (Per-item "Show Log" button removed — the live log is always
+  // available in the right pane, both during the run and on replay.
+  // Avoids duplicating output in two places.)
+
+  const allDone = progress.items.every(it => ['passed','failed','cancelled'].includes(it.status));
+  const anyFailed = progress.items.some(it => it.status === 'failed');
+  const anyCancelled = progress.items.some(it => it.status === 'cancelled');
+  const cardClass = `card progress-card${allDone ? (anyFailed ? ' done-fail' : anyCancelled ? ' done-fail' : ' done-pass') : ''}`;
+
+  // Map id → display_name from the tests list so the panel shows the
+  // friendly title (and the type badge) rather than the bare filename.
+  const friendlyName = (item) => {
+    const t = (tests || []).find(t => t.id === item.id || t.filename === item.filename);
+    return t?.display_name || item.display_name || item.filename;
+  };
+
+  return (
+    <div className={cardClass} style={{marginBottom:'1rem'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'0.5rem',gap:8,flexWrap:'wrap'}}>
+        <h2 style={{margin:0}}>{running ? 'Running Tests...' : 'Run Complete'}</h2>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          {/* View Full Report — visible once the run finishes and the
+              combined HTML exists. One-click jump to the gutter+iframe
+              view without going to the Run History tab. */}
+          {!running && currentResult?.combined_report_url && (
+            <>
+              <a
+                href={currentResult.combined_report_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary btn-sm"
+                style={{textDecoration:'none', fontSize:'0.75rem'}}
+                title="Open the combined run report (every test in one HTML)"
+              >
+                View Full Report ↗
+              </a>
+              <a
+                href={currentResult.combined_report_url}
+                download={`run_${currentResult.run_id}.html`}
+                className="btn btn-ghost btn-sm"
+                style={{textDecoration:'none', fontSize:'0.75rem'}}
+                title="Download the self-contained offline copy"
+              >
+                &#x2B07;
+              </a>
+            </>
+          )}
+          {running && onCancelAll && (
+            <button className="btn btn-danger btn-sm" onClick={onCancelAll}>
+              Cancel All
+            </button>
+          )}
+        </div>
+      </div>
+      {progress.items.map((item, i) => {
+        let idxClass = 'idx-waiting';
+        if (item.status === 'running') idxClass = 'idx-running';
+        else if (item.status === 'passed') idxClass = 'idx-passed';
+        else if (item.status === 'failed' || item.status === 'cancelled') idxClass = 'idx-failed';
+
+        return (
+          <div key={i}>
+            <div className="progress-item">
+              <div className={`idx ${idxClass}`}>
+                {item.status === 'running'
+                  ? <span className="spinner-inline" style={{width:14,height:14,borderWidth:2}} />
+                  : item.index}
+              </div>
+              <div style={{flex:1, minWidth:0}}>
+                <div className="name" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                  <span>{friendlyName(item)}</span>
+                  {item.type && <span className={`type-badge ${item.type}`}>{item.type.toUpperCase()}</span>}
+                </div>
+                {item.status === 'running' && <span style={{fontSize:'0.75rem',color:'var(--orange)'}}>Currently executing...</span>}
+                {item.status === 'waiting' && <span style={{fontSize:'0.75rem',color:'var(--muted)'}}>Waiting</span>}
+                {item.status === 'cancelled' && <span style={{fontSize:'0.75rem',color:'var(--danger)'}}>Cancelled by user</span>}
+                {(item.status === 'passed' || item.status === 'failed') && item.verdicts && (
+                  <span style={{fontSize:'0.75rem',color:'var(--muted)'}}>
+                    {item.verdicts.length} test{item.verdicts.length !== 1 ? 's' : ''} - {item.verdicts.filter(v=>v.result==='passed').length} passed, {item.verdicts.filter(v=>v.result!=='passed').length} failed
+                  </span>
+                )}
+                {item.report_urls && item.report_urls.length > 0 && (() => {
+                  // Dedupe — parallel runs can rarely surface the same
+                  // URL twice through different attribution paths.
+                  // Only one link is shown; in the unusual case where
+                  // a test emits multiple distinct reports (e.g. a
+                  // retry helper), surface the count instead of
+                  // repeating the link.
+                  const unique = [...new Set(item.report_urls)];
+                  const primary = unique[0];
+                  return (
+                    <span style={{marginLeft:8}}>
+                      <a href={primary} target="_blank" rel="noopener noreferrer"
+                         style={{fontSize:'0.75rem',color:'var(--orange)',fontWeight:600,textDecoration:'none'}}
+                         onClick={(e) => e.stopPropagation()}>
+                        View Report{unique.length > 1 ? ` (+${unique.length - 1} more)` : ''}
+                      </a>
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="meta" style={{display:'flex',alignItems:'center',gap:8}}>
+                {item.status === 'running' && running && onCancelCurrent && (
+                  <button className="btn btn-danger btn-sm" style={{padding:'0.2rem 0.5rem',fontSize:'0.7rem'}} onClick={onCancelCurrent}>
+                    Cancel
+                  </button>
+                )}
+                {item.status === 'passed' && <span className="badge badge-passed">Passed</span>}
+                {item.status === 'failed' && <span className="badge badge-failed">Failed</span>}
+                {item.status === 'cancelled' && <span className="badge badge-error">Cancelled</span>}
+                {item.status === 'running' && <span className="badge badge-running">Running</span>}
+                {item.status === 'waiting' && <span className="badge badge-waiting">Queued</span>}
+                {item.duration_s != null && <span style={{fontSize:'0.75rem',color:'var(--muted)'}}>{fmtDuration(item.duration_s)}</span>}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+// (RunResult and ReportBrowser components removed — the History row now
+// surfaces a single "View Report" link to the combined per-run HTML, and
+// there's no inline summary panel any more.)
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>

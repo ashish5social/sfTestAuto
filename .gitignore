@@ -1,0 +1,36 @@
+# ── Credentials — NEVER commit ────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.properties
+profiles/*.local.yml
+
+# ── Python ───────────────────────────────────────────────────────────
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# ── Test run artifacts (regenerated every run) ───────────────────────
+reports/
+screenshots/
+videos_tmp/
+test-results/
+*.db
+test_run_history.json
+
+# ── Playwright ───────────────────────────────────────────────────────
+playwright-report/
+.playwright/
+
+# ── OS / editor ──────────────────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+*.swp

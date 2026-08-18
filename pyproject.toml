@@ -1,0 +1,44 @@
+[project]
+name = "cci-test-automation"
+version = "0.1.0"
+description = "UI Test Automation for Salesforce CCI Sandbox"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.49.0",
+    "pytest>=8.0",
+    "pytest-playwright>=0.5.0",
+    # Parallel test execution: pytest -n N spawns N pytest workers.
+    # The dashboard uses its own bounded-parallelism pool (see
+    # src/web/parallel_runner.py) but GitHub Actions invokes pytest
+    # directly via the CLI, where xdist is the cleanest path to the
+    # same up-to-4-in-flight behaviour.
+    "pytest-xdist>=3.5.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "simple-salesforce>=1.12.0",
+    "requests>=2.31.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "aiofiles>=24.0",
+    "jinja2>=3.1.0",
+    "pydantic>=2.0",
+    # Pillow powers the visual-regression diff helper (compare_screenshot)
+    # in src/core/playwright_helpers.py. Playwright already pulls it in
+    # transitively but we depend on it directly to keep the import path
+    # honest if Playwright changes its deps.
+    "Pillow>=10.0",
+]
+
+[project.scripts]
+cci = "src.cli:main"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v -s --tb=short"

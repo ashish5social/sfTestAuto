@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCI Test Automation</title>
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-light: #3b82f6;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+
+        /* Layout */
+        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; background: var(--primary); color: white; padding: 1.5rem 0; z-index: 100; }
+        .sidebar h1 { font-size: 1.125rem; padding: 0 1.25rem; margin-bottom: 0.25rem; }
+        .sidebar .subtitle { font-size: 0.75rem; color: rgba(255,255,255,0.6); padding: 0 1.25rem; margin-bottom: 2rem; }
+        .nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.25rem; cursor: pointer; transition: background 0.15s; font-size: 0.9rem; }
+        .nav-item:hover { background: rgba(255,255,255,0.1); }
+        .nav-item.active { background: rgba(255,255,255,0.2); font-weight: 600; }
+        .nav-icon { font-size: 1.2rem; width: 24px; text-align: center; }
+
+        .main { margin-left: 240px; padding: 2rem; min-height: 100vh; }
+        .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }
+
+        /* Cards */
+        .card { background: var(--card); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .card h2 { font-size: 1.125rem; margin-bottom: 1rem; color: var(--primary); }
+
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .stat-card { background: var(--card); border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .stat-card .label { font-size: 0.75rem; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+        .stat-card .value { font-size: 2rem; font-weight: 700; margin-top: 0.25rem; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+        th { font-size: 0.75rem; text-transform: uppercase; color: var(--muted); font-weight: 600; background: #f8fafc; }
+        tr:hover { background: #f8fafc; }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 0.2rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-passed { background: #dcfce7; color: #166534; }
+        .badge-failed { background: #fee2e2; color: #991b1b; }
+        .badge-running { background: #dbeafe; color: #1e40af; }
+        .badge-error { background: #ffedd5; color: #9a3412; }
+        .badge-timeout { background: #fef3c7; color: #92400e; }
+        .badge-pending { background: #f1f5f9; color: #64748b; }
+
+        /* Forms */
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; color: var(--muted); }
+        input[type="text"], textarea, select { width: 100%; padding: 0.625rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.875rem; font-family: inherit; }
+        textarea { min-height: 150px; resize: vertical; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+        /* Buttons */
+        .btn { padding: 0.625rem 1.25rem; border: none; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #1e3a8a; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-ghost { background: transparent; color: var(--primary); border: 1px solid var(--border); }
+        .btn-ghost:hover { background: #f8fafc; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
+
+        /* Live feed */
+        .live-feed { background: #0f172a; border-radius: 8px; padding: 1rem; max-height: 400px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; color: #94a3b8; }
+        .live-feed .step-line { padding: 0.25rem 0; border-bottom: 1px solid #1e293b; }
+        .live-feed .step-line .num { color: var(--primary-light); }
+        .live-feed .step-line .time { color: #475569; }
+
+        /* Checkbox */
+        .checkbox-group { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+        .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; }
+        .checkbox-label input { width: 16px; height: 16px; }
+
+        /* Loading */
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast { position: fixed; top: 1rem; right: 1rem; padding: 0.75rem 1.25rem; border-radius: 8px; color: white; font-weight: 500; z-index: 1000; animation: slideIn 0.3s; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+
+        .actions-cell { display: flex; gap: 0.5rem; }
+        .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
+
+        /* Report modal */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; }
+        .modal-overlay.active { display: flex; align-items: center; justify-content: center; }
+        .modal { background: white; border-radius: 12px; width: 90%; max-width: 900px; max-height: 85vh; overflow-y: auto; padding: 2rem; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--muted); }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+    <h1>CCI Test Auto</h1>
+    <p class="subtitle">AI-Powered Testing</p>
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">&#x1F4CA;</span> Dashboard</div>
+    <div class="nav-item" onclick="showPage('run')"><span class="nav-icon">&#x25B6;</span> Run Test</div>
+    <div class="nav-item" onclick="showPage('tests')"><span class="nav-icon">&#x1F4DD;</span> Test Library</div>
+    <div class="nav-item" onclick="showPage('create')"><span class="nav-icon">&#x2795;</span> Create Test</div>
+    <div class="nav-item" onclick="showPage('history')"><span class="nav-icon">&#x1F4C1;</span> Run History</div>
+    <div class="nav-item" onclick="showPage('settings')"><span class="nav-icon">&#x2699;</span> Settings</div>
+</nav>
+
+<!-- Main Content -->
+<div class="main">
+
+    <!-- Dashboard Page -->
+    <div id="page-dashboard" class="page active">
+        <h1 class="page-title">Dashboard</h1>
+        <div id="stats-grid" class="stats-grid"></div>
+        <div class="card">
+            <h2>Recent Runs</h2>
+            <table>
+                <thead><tr><th>Run ID</th><th>Test</th><th>Status</th><th>Duration</th><th>Date</th><th>Actions</th></tr></thead>
+                <tbody id="recent-runs"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Run Test Page -->
+    <div id="page-run" class="page">
+        <h1 class="page-title">Run Test</h1>
+        <div class="card">
+            <h2>Quick Run (Plain English)</h2>
+            <p style="color:var(--muted); margin-bottom:1rem; font-size:0.875rem">Describe what you want to test in plain English. The AI will interpret and execute it.</p>
+            <div class="form-group">
+                <label>Test Name (optional)</label>
+                <input type="text" id="adhoc-name" placeholder="e.g., New Mobile Subscription Test">
+            </div>
+            <div class="form-group">
+                <label>Test Instructions</label>
+                <textarea id="adhoc-task" placeholder="Go to Salesforce, create a new mobile subscription with Internet only plan, verify the monthly price shows $49.99, submit the order, and confirm an asset is created."></textarea>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" id="adhoc-headless"> Run headless (no visible browser)</label>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="runAdhocTest()" id="btn-run-adhoc">
+                    <span>&#x25B6;</span> Run with AI (Browser-Use)
+                </button>
+                <button class="btn" onclick="generateScript()" id="btn-generate" style="background:var(--success);color:#fff;margin-left:0.5rem">
+                    <span>&#x2699;</span> Generate Playwright Script
+                </button>
+            </div>
+            <!-- Generated Script Output -->
+            <div class="card" id="generated-script-card" style="display:none; margin-top:1rem">
+                <h2>Generated Playwright Script</h2>
+                <p style="color:var(--muted); font-size:0.875rem" id="generated-run-cmd"></p>
+                <pre style="background:#1a1a2e; color:#e0e0e0; padding:1rem; border-radius:8px; overflow-x:auto; font-size:0.8rem; max-height:500px"><code id="generated-code"></code></pre>
+            </div>
+        </div>
+
+        <!-- Live Feed -->
+        <div class="card" id="live-feed-card" style="display:none">
+            <h2>Live Execution <span class="badge badge-running" id="live-status">RUNNING</span></h2>
+            <div class="live-feed" id="live-feed"></div>
+        </div>
+    </div>
+
+    <!-- Test Library Page -->
+    <div id="page-tests" class="page">
+        <h1 class="page-title">Test Library</h1>
+        <div class="card">
+            <table>
+                <thead><tr><th>Name</th><th>File</th><th>Steps</th><th>Tags</th><th>Actions</th></tr></thead>
+                <tbody id="tests-list"></tbody>
+            </table>
+            <div id="tests-empty" class="empty-state" style="display:none">
+                <div class="icon">&#x1F4DD;</div>
+                <p>No test definitions yet. Create one to get started.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Test Page -->
+    <div id="page-create" class="page">
+        <h1 class="page-title">Create Test</h1>
+        <div class="card">
+            <div class="form-group">
+                <label>Test Name</label>
+                <input type="text" id="create-name" placeholder="New Mobile Subscription - Internet Only">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="create-desc" placeholder="Describe the purpose of this test..." style="min-height:80px"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Steps (one per line)</label>
+                <textarea id="create-steps" placeholder="Go to Salesforce and log in&#10;Navigate to Accounts tab&#10;Open test account&#10;Click New Order&#10;Select Mobile product&#10;Choose Internet Only plan&#10;Verify monthly price&#10;Submit order&#10;Verify asset created"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Tags (comma-separated)</label>
+                <input type="text" id="create-tags" placeholder="core, mobile, regression">
+            </div>
+            <div class="form-group">
+                <label>Timeout (seconds)</label>
+                <input type="text" id="create-timeout" value="300">
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="createTest()">Save Test</button>
+                <button class="btn btn-ghost" onclick="showPage('tests')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Run History Page -->
+    <div id="page-history" class="page">
+        <h1 class="page-title">Run History</h1>
+        <div class="card">
+            <div style="margin-bottom:1rem; display:flex; gap:0.5rem;">
+                <button class="btn btn-ghost btn-sm" onclick="loadHistory()">All</button>
+                <button class="btn btn-ghost btn-sm" onclick="loadHistory('passed')">Passed</button>
+                <button class="btn btn-ghost btn-sm" onclick="loadHistory('failed')">Failed</button>
+                <button class="btn btn-ghost btn-sm" onclick="loadHistory('error')">Errors</button>
+            </div>
+            <table>
+                <thead><tr><th>Run ID</th><th>Test</th><th>Status</th><th>Duration</th><th>Date</th><th>Actions</th></tr></thead>
+                <tbody id="history-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="page-settings" class="page">
+        <h1 class="page-title">Settings</h1>
+        <div class="card">
+            <h2>Salesforce Connection</h2>
+            <div id="sf-status" style="margin-bottom:1rem"></div>
+            <button class="btn btn-ghost" onclick="testSFConnection()">Test Connection</button>
+        </div>
+        <div class="card">
+            <h2>System Health</h2>
+            <div id="health-status"></div>
+            <button class="btn btn-ghost" onclick="checkHealth()" style="margin-top:0.75rem">Check Health</button>
+        </div>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal-overlay" id="report-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Test Report</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="report-content"></div>
+    </div>
+</div>
+
+<script>
+const API = '';
+
+// Format seconds as "Ys" (under 60s) or "Xm Ys" (>=60s).
+// Examples: 58 -> "58s", 68 -> "1m 8s", 674.7 -> "11m 14.7s".
+function fmtDuration(seconds) {
+    if (seconds == null || seconds === '' || isNaN(Number(seconds))) return '-';
+    const total = Number(seconds);
+    if (total < 60) {
+        return Math.abs(total - Math.round(total)) < 0.05
+            ? `${Math.round(total)}s`
+            : `${+total.toFixed(2)}s`;
+    }
+    const minutes = Math.floor(total / 60);
+    const rem = total - (minutes * 60);
+    const remStr = Math.abs(rem - Math.round(rem)) < 0.05
+        ? `${Math.round(rem)}s`
+        : `${+rem.toFixed(2)}s`;
+    return `${minutes}m ${remStr}`;
+}
+
+// --- Navigation ---
+function showPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    event.target.closest('.nav-item')?.classList.add('active');
+
+    if (page === 'dashboard') loadDashboard();
+    if (page === 'tests') loadTests();
+    if (page === 'history') loadHistory();
+}
+
+// --- Dashboard ---
+async function loadDashboard() {
+    try {
+        const [stats, runs] = await Promise.all([
+            fetch(API + '/api/stats').then(r => r.json()),
+            fetch(API + '/api/runs?limit=10').then(r => r.json()),
+        ]);
+
+        document.getElementById('stats-grid').innerHTML = `
+            <div class="stat-card"><div class="label">Total Runs</div><div class="value">${stats.total}</div></div>
+            <div class="stat-card"><div class="label">Passed</div><div class="value" style="color:var(--success)">${stats.passed}</div></div>
+            <div class="stat-card"><div class="label">Failed</div><div class="value" style="color:var(--danger)">${stats.failed}</div></div>
+            <div class="stat-card"><div class="label">Pass Rate</div><div class="value">${stats.pass_rate}%</div></div>
+            <div class="stat-card"><div class="label">Avg Duration</div><div class="value">${fmtDuration(stats.avg_duration)}</div></div>
+        `;
+
+        document.getElementById('recent-runs').innerHTML = runs.length ? runs.map(r => runRow(r)).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">No runs yet. Run your first test!</td></tr>';
+    } catch (e) {
+        console.error('Failed to load dashboard:', e);
+    }
+}
+
+function runRow(r) {
+    return `<tr>
+        <td><code>${r.run_id}</code></td>
+        <td>${r.test_name}</td>
+        <td><span class="badge badge-${r.status}">${r.status}</span></td>
+        <td>${fmtDuration(r.duration)}</td>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+        <td class="actions-cell">
+            <button class="btn btn-ghost btn-sm" onclick="viewReport('${r.run_id}')">Report</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteRun('${r.run_id}')">Delete</button>
+        </td>
+    </tr>`;
+}
+
+// --- Tests ---
+async function loadTests() {
+    try {
+        const tests = await fetch(API + '/api/tests').then(r => r.json());
+        const el = document.getElementById('tests-list');
+        const empty = document.getElementById('tests-empty');
+
+        if (tests.length === 0) {
+            el.innerHTML = '';
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+        el.innerHTML = tests.map(t => `<tr>
+            <td><strong>${t.name}</strong></td>
+            <td><code>${t.file_path ? t.file_path.split('/').pop() : '-'}</code></td>
+            <td>${t.steps ? t.steps.length : 0}</td>
+            <td>${(t.tags || []).map(t => `<span class="badge badge-pending">${t}</span>`).join(' ')}</td>
+            <td class="actions-cell">
+                <button class="btn btn-primary btn-sm" onclick="runSavedTest('${t.file_path ? t.file_path.split('/').pop() : ''}')">Run (AI)</button>
+                <button class="btn btn-sm" style="background:var(--success);color:#fff" onclick="generateSavedTest('${t.file_path ? t.file_path.split('/').pop() : ''}')">Generate</button>
+            </td>
+        </tr>`).join('');
+    } catch (e) {
+        console.error('Failed to load tests:', e);
+    }
+}
+
+async function runSavedTest(filename) {
+    try {
+        const res = await fetch(API + '/api/tests/' + filename + '/run', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ headless: false }),
+        });
+        const data = await res.json();
+        showToast('Test started: ' + data.run_id, 'success');
+        showPage('run');
+        connectLiveFeed(data.run_id);
+    } catch (e) {
+        showToast('Failed to start test', 'error');
+    }
+}
+
+async function generateSavedTest(filename) {
+    try {
+        const res = await fetch(API + '/api/tests/' + filename + '/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+        });
+        const data = await res.json();
+        showPage('run');
+        document.getElementById('generated-code').textContent = data.script;
+        document.getElementById('generated-run-cmd').textContent = 'Run: ' + data.run_command;
+        document.getElementById('generated-script-card').style.display = 'block';
+        showToast('Script generated: ' + data.file, 'success');
+    } catch (e) {
+        showToast('Failed to generate script', 'error');
+    }
+}
+
+// --- Create Test ---
+async function createTest() {
+    const name = document.getElementById('create-name').value.trim();
+    const desc = document.getElementById('create-desc').value.trim();
+    const stepsText = document.getElementById('create-steps').value.trim();
+    const tags = document.getElementById('create-tags').value.trim();
+    const timeout = parseInt(document.getElementById('create-timeout').value) || 300;
+
+    if (!name) { showToast('Test name is required', 'error'); return; }
+    if (!stepsText) { showToast('At least one step is required', 'error'); return; }
+
+    const steps = stepsText.split('\n').map(s => s.trim()).filter(s => s);
+
+    try {
+        const res = await fetch(API + '/api/tests', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name, description: desc, steps, timeout,
+                tags: tags ? tags.split(',').map(t => t.trim()) : [],
+            }),
+        });
+        const data = await res.json();
+        showToast('Test created: ' + data.file, 'success');
+        showPage('tests');
+    } catch (e) {
+        showToast('Failed to create test', 'error');
+    }
+}
+
+// --- Run Adhoc ---
+async function runAdhocTest() {
+    const task = document.getElementById('adhoc-task').value.trim();
+    const name = document.getElementById('adhoc-name').value.trim();
+    const headless = document.getElementById('adhoc-headless').checked;
+
+    if (!task) { showToast('Please enter test instructions', 'error'); return; }
+
+    const btn = document.getElementById('btn-run-adhoc');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Starting...';
+
+    try {
+        const res = await fetch(API + '/api/run-adhoc', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ task, name: name || null, headless }),
+        });
+        const data = await res.json();
+        showToast('Test started: ' + data.run_id, 'success');
+        connectLiveFeed(data.run_id);
+    } catch (e) {
+        showToast('Failed to start test: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>&#x25B6;</span> Run with AI (Browser-Use)';
+    }
+}
+
+// --- Generate Playwright Script ---
+async function generateScript() {
+    const task = document.getElementById('adhoc-task').value.trim();
+    const name = document.getElementById('adhoc-name').value.trim();
+
+    if (!task) { showToast('Please enter test instructions', 'error'); return; }
+
+    const btn = document.getElementById('btn-generate');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+    try {
+        const res = await fetch(API + '/api/generate-adhoc', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: task, name: name || null }),
+        });
+        const data = await res.json();
+        document.getElementById('generated-code').textContent = data.script;
+        document.getElementById('generated-run-cmd').textContent = 'Run: ' + data.run_command;
+        document.getElementById('generated-script-card').style.display = 'block';
+        showToast('Script generated: ' + data.file, 'success');
+    } catch (e) {
+        showToast('Failed to generate script: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>&#x2699;</span> Generate Playwright Script';
+    }
+}
+
+// --- Live Feed ---
+let liveWs = null;
+
+function connectLiveFeed(runId) {
+    const feedCard = document.getElementById('live-feed-card');
+    const feed = document.getElementById('live-feed');
+    const status = document.getElementById('live-status');
+
+    feedCard.style.display = 'block';
+    feed.innerHTML = `<div class="step-line"><span class="time">${new Date().toLocaleTimeString()}</span> Connecting to run ${runId}...</div>`;
+    status.textContent = 'RUNNING';
+    status.className = 'badge badge-running';
+
+    if (liveWs) { liveWs.close(); }
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    liveWs = new WebSocket(`${protocol}//${location.host}/api/runs/${runId}/live`);
+
+    liveWs.onmessage = (event) => {
+        const step = JSON.parse(event.data);
+        feed.innerHTML += `<div class="step-line"><span class="num">Step ${step.step_number || '?'}</span> <span class="time">${new Date().toLocaleTimeString()}</span> ${step.action || 'Processing...'}</div>`;
+        feed.scrollTop = feed.scrollHeight;
+    };
+
+    liveWs.onclose = () => {
+        feed.innerHTML += `<div class="step-line" style="color:#94a3b8">Connection closed. Check Run History for results.</div>`;
+        status.textContent = 'COMPLETED';
+        status.className = 'badge badge-passed';
+    };
+
+    liveWs.onerror = () => {
+        feed.innerHTML += `<div class="step-line" style="color:var(--danger)">WebSocket error</div>`;
+    };
+
+    // Poll for completion
+    const pollInterval = setInterval(async () => {
+        try {
+            const run = await fetch(API + '/api/runs/' + runId).then(r => r.json());
+            if (run && run.status !== 'running') {
+                clearInterval(pollInterval);
+                status.textContent = run.status.toUpperCase();
+                status.className = 'badge badge-' + run.status;
+                feed.innerHTML += `<div class="step-line" style="color:${run.status === 'passed' ? 'var(--success)' : 'var(--danger)'}">Test ${run.status.toUpperCase()} in ${run.duration != null ? fmtDuration(run.duration) : '?'}</div>`;
+            }
+        } catch {}
+    }, 3000);
+}
+
+// --- History ---
+async function loadHistory(status) {
+    try {
+        const url = status ? API + '/api/runs?status=' + status : API + '/api/runs';
+        const runs = await fetch(url).then(r => r.json());
+        document.getElementById('history-list').innerHTML = runs.length
+            ? runs.map(r => runRow(r)).join('')
+            : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">No runs found</td></tr>';
+    } catch (e) {
+        console.error('Failed to load history:', e);
+    }
+}
+
+// --- Reports ---
+async function viewReport(runId) {
+    try {
+        const res = await fetch(API + '/api/runs/' + runId + '/report');
+        if (!res.ok) {
+            // Fall back to run details
+            const run = await fetch(API + '/api/runs/' + runId).then(r => r.json());
+            document.getElementById('report-content').innerHTML = `<pre style="white-space:pre-wrap">${JSON.stringify(run, null, 2)}</pre>`;
+        } else {
+            const data = await res.json();
+            document.getElementById('report-content').innerHTML = data.html || '<p>No report available</p>';
+        }
+        document.getElementById('report-modal').classList.add('active');
+    } catch (e) {
+        showToast('Failed to load report', 'error');
+    }
+}
+
+function closeModal() {
+    document.getElementById('report-modal').classList.remove('active');
+}
+
+async function deleteRun(runId) {
+    if (!confirm('Delete this run?')) return;
+    try {
+        await fetch(API + '/api/runs/' + runId, { method: 'DELETE' });
+        showToast('Run deleted', 'success');
+        loadDashboard();
+        loadHistory();
+    } catch (e) {
+        showToast('Failed to delete', 'error');
+    }
+}
+
+// --- Settings ---
+async function testSFConnection() {
+    const el = document.getElementById('sf-status');
+    el.innerHTML = '<p>Testing connection...</p>';
+    try {
+        const data = await fetch(API + '/api/sf/status').then(r => r.json());
+        el.innerHTML = data.connected
+            ? `<p style="color:var(--success)">&#x2705; Connected to: <strong>${data.org_name}</strong> (${data.org_id})</p>`
+            : `<p style="color:var(--danger)">&#x274C; Connection failed: ${data.error}</p>`;
+    } catch (e) {
+        el.innerHTML = `<p style="color:var(--danger)">&#x274C; ${e.message}</p>`;
+    }
+}
+
+async function checkHealth() {
+    const el = document.getElementById('health-status');
+    try {
+        const data = await fetch(API + '/health').then(r => r.json());
+        el.innerHTML = `<p>Status: <strong>${data.status}</strong></p>` +
+            (data.errors.length ? `<p style="color:var(--warning)">Warnings: ${data.errors.join(', ')}</p>` : '');
+    } catch (e) {
+        el.innerHTML = `<p style="color:var(--danger)">Health check failed: ${e.message}</p>`;
+    }
+}
+
+// --- Toast ---
+function showToast(msg, type = 'info') {
+    const colors = { success: 'var(--success)', error: 'var(--danger)', info: 'var(--primary)' };
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.style.background = colors[type] || colors.info;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// --- Init ---
+loadDashboard();
+</script>
+
+</body>
+</html>

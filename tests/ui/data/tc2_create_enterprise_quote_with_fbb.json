@@ -1,0 +1,49 @@
+{
+  "record_type": "Business",
+  "account_name_prefix": "CCIAUTO_Biz_",
+  "addresses": [
+    {
+      "street": "202 E Pilar St",
+      "city": "Nacogdoches",
+      "state": "TX",
+      "zip": "75961",
+      "country": "USA"
+    },
+    {
+      "street": "600 S 13th St",
+      "city": "Pekin",
+      "state": "IL",
+      "zip": "61554",
+      "country": "USA"
+    }
+  ],
+  "contact": {
+    "last_name_prefix": "CCIAUTO_Contact_",
+    "email_prefix": "cciauto_",
+    "email_domain": "testcci_"
+  },
+  "quote": {
+    "quote_name_prefix": "CCIAUTO_Quote_",
+    "service_term_months": "12",
+    "create_button_name": "Create Enterprise Quote"
+  },
+  "opportunity": {
+    "new_button_name": "New Opportunity - Business",
+    "stage": "Generate Interest",
+    "existing_customer": "No"
+  },
+  "location": {
+    "search_address": "202 E Pilar St, Nacogdoches, TX",
+    "expected_toast": "Member added successfully"
+  },
+  "product": {
+    "search_term": "Fiber Broadband",
+    "display_name": "Fiber Broadband",
+    "quote_type": "New",
+    "quote_type_field_label": "Quote Type",
+    "bandwidth": "100 Mbps",
+    "bandwidth_field_label": "Bandwidth",
+    "expected_summary_products": ["Fiber Broadband"]
+  },
+  "timeout_ms": 60000
+}

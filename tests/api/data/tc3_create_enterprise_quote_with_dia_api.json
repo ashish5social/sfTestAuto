@@ -1,0 +1,88 @@
+{
+  "record_type": "Business",
+  "account_name_prefix": "CCIAUTO_API_",
+  "addresses": [
+    {
+      "street": "202 E Pilar St",
+      "city": "Nacogdoches",
+      "state": "TX",
+      "state_code": "TX",
+      "zip": "75961",
+      "country": "USA",
+      "country_code": "US"
+    }
+  ],
+  "account_fields": {
+    "Type": "Prospect",
+    "Industry": "Technology"
+  },
+  "opportunity": {
+    "name_prefix": "CCIAUTO_API_",
+    "stage": "Generate Interest",
+    "existing_customer": "No",
+    "close_date_offset_days": 30,
+    "record_type_developer_name": "Business"
+  },
+  "quote": {
+    "quote_name_prefix": "CCIAUTO_API_Quote_",
+    "service_term_months": 12,
+    "record_type_developer_name": "EnterpriseQuote",
+    "price_list_name": "CCI Commercial Pricing List",
+    "status": "Draft",
+    "quote_type": "Classic",
+    "description": ""
+  },
+  "location": {
+    "_comment": "QuoteMember (location) payload — passed verbatim to IP ESM_saveTypeaheadDetails. Captured from TC1 UI traffic (Aura → ComponentController.handleData → vlocity_cmt IP). Google geocoded fields preserved so the record matches what the UI produces.",
+    "ip_name": "ESM_saveTypeaheadDetails",
+    "lookup_object": "GoogleMaps",
+    "member": {
+      "Name": "202, East Pilar Street, Nacogdoches, Nacogdoches County, Texas, United States, 75961",
+      "MemberType__c": "Location",
+      "vlocity_cmt__StreetAddress__c": "202, East Pilar Street",
+      "vlocity_cmt__Address1__c": "Nacogdoches",
+      "vlocity_cmt__City__c": "Nacogdoches County",
+      "vlocity_cmt__State__c": "Texas",
+      "vlocity_cmt__Country__c": "United States",
+      "vlocity_cmt__PostalCode__c": "75961",
+      "cci_cmt_ShortStateName__c": "TX",
+      "cci_cmt_formattedAddress__c": "202 E Pilar St, Nacogdoches, TX 75961, USA",
+      "cci_cmt_PlaceId__c": "ChIJg1yS_JaLN4YRoutSgMdNyMQ",
+      "cci_cmt_latitude__c": "31.614781",
+      "cci_cmt_longitude__c": "-94.67315640000001"
+    }
+  },
+  "product": {
+    "search_term": "Dedicated Internet Access (DIA)",
+    "display_name": "Dedicated Internet Access (DIA)",
+    "product_code": "CCI_COMM_DIA_UP_TO_2GBPS",
+    "bandwidth": "200 Mbps",
+    "bandwidth_attr_code": "ATTR_BANDWIDTH"
+  },
+  "router": {
+    "display_name": "Router",
+    "product_code": "CCI_COMM_EDGE_SBC",
+    "provided_by": "Fidium Provided",
+    "provided_by_attr_code": "ATTR_PROVIDED_BY"
+  },
+  "working_cart": {
+    "_comment": "Transient cart spawned for this run; AddQMQGToWC_CopyToEQ disposes it after copying items onto the Enterprise Quote.",
+    "create_ip": "create_WorkingCart",
+    "copy_to_eq_ip": "AddQMQGToWC_CopyToEQ",
+    "default_name": "Test Working Cart",
+    "default_status": "Draft",
+    "fields_to_copy": [
+      "Id",
+      "AccountId",
+      "OpportunityId",
+      "vlocity_cmt__OriginatingChannel__c",
+      "vlocity_cmt__PriceListId__c",
+      "vlocity_cmt__PriceListId__r.Name",
+      "cci_cmt_Service_Term__c"
+    ]
+  },
+  "finalization": {
+    "current_user_ip": "CCI_CurrentUserOrderAssignment",
+    "sales_order_ip": "CCI_SalesOrderAssignment"
+  }
+}
