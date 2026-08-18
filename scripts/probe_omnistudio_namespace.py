@@ -15,7 +15,7 @@ Also reports:
   - Recommended API base URL for Integration Procedures
   - Count of active OmniProcesses / OmniScripts
   - Sample Quote/Order-related IPs
-  - Recent CCIAUTO record samples (so we know the custom-field shape)
+  - Recent SFAUTO record samples (so we know the custom-field shape)
 
 All Salesforce access goes through sf.query_all() / sf.<obj>.get() so the
 correct instance URL (including the double-dash My-Domain host) is used
@@ -184,13 +184,13 @@ def list_ips(sf: Salesforce, obj: str) -> list[dict]:
 
 
 def sample_cciauto_records(sf: Salesforce) -> dict:
-    """Pull newest CCIAUTO records to understand custom-field structure."""
+    """Pull newest SFAUTO records to understand custom-field structure."""
     out = {}
     for obj in ["Account", "Opportunity", "Quote", "Contact"]:
         try:
             r = sf.query_all(
                 f"SELECT Id, Name, CreatedDate FROM {obj} "
-                f"WHERE Name LIKE '%CCIAUTO%' ORDER BY CreatedDate DESC LIMIT 1"
+                f"WHERE Name LIKE '%SFAUTO%' ORDER BY CreatedDate DESC LIMIT 1"
             )
             if not r["records"]:
                 out[obj] = None
@@ -287,7 +287,7 @@ def main():
         for h in ip_hits[:30]:
             print(f"    {h}")
 
-    print("\n— Sample CCIAUTO records with custom fields —")
+    print("\n— Sample SFAUTO records with custom fields —")
     sample = sample_cciauto_records(sf)
     print(json.dumps(sample, indent=2, default=str))
 

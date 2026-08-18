@@ -417,7 +417,7 @@ class Test<PascalCaseName>:
 - ALWAYS `sf.wait_page_ready()` (or `sf.wait_for_config_update()` on Configure Cart edits) after navigations
 - Class docstring's first line = display name in dashboard + report
 - `TAGS = [...]` and `OBJECTIVE = "..."` class attrs surface in the dashboard's info-icon popup
-- Test record names MUST include "CCIAUTO" (e.g. `SFAUTO_Biz_{TIMESTAMP}`)
+- Test record names MUST include "SFAUTO" (e.g. `SFAUTO_Biz_{TIMESTAMP}`)
 
 ### API test template
 

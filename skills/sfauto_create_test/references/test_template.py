@@ -27,7 +27,7 @@ Conventions to keep (don't break these):
     like {addresses[0].region} get rendered against the JSON data file at
     display time.
   - NO YAML — metadata lives entirely in this .py.
-  - All record names MUST include "CCIAUTO" so the cleanup script finds
+  - All record names MUST include "SFAUTO" so the cleanup script finds
     them (scripts/cleanup_test_data.py).
 """
 

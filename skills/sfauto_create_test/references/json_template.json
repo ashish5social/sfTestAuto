@@ -1,5 +1,5 @@
 {
-  "_comment": "Test data template — copy to tests/{ui,api}/data/tc<N>_<slug>.json. Use real CCIAUTO prefixes (e.g. SFAUTO_Biz_, SFAUTO_API_) so the cleanup script can find these records. See tests/ui/data/tc1_create_enterprise_quote_with_dia.json for the canonical example.",
+  "_comment": "Test data template — copy to tests/{ui,api}/data/tc<N>_<slug>.json. Use real SFAUTO prefixes (e.g. SFAUTO_Biz_, SFAUTO_API_) so the cleanup script can find these records. See tests/ui/data/tc1_create_enterprise_quote_with_dia.json for the canonical example.",
 
   "record_type": "{{Business|Residential|...}}",
   "account_name_prefix": "SFAUTO_{{Biz|Res|API}}_",

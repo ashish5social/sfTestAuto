@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Cleanup CCIAUTO Test Data from Salesforce Sandbox
+Cleanup SFAUTO Test Data from Salesforce Sandbox
 ==================================================
 
 Standalone script that connects to the Salesforce org, finds all test records
-created by the Salesforce test automation (identified by the "CCIAUTO" keyword in
+created by the Salesforce test automation (identified by the "SFAUTO" keyword in
 record names), and deletes them in reverse-creation order — keeping records
 from the last N days.
 
@@ -48,7 +48,7 @@ except ImportError:
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
-MARKER = "CCIAUTO"
+MARKER = "SFAUTO"
 
 # Salesforce objects to scan, in deletion order (children first, parents last).
 # Each entry: (SObject API name, Name field, optional parent-lookup field)
@@ -118,7 +118,7 @@ def connect_to_salesforce() -> Salesforce:
 
 
 def find_test_records(sf: Salesforce, obj_config: dict, cutoff_date: str) -> list:
-    """Query for CCIAUTO records created before the cutoff date."""
+    """Query for SFAUTO records created before the cutoff date."""
     sobject = obj_config["sobject"]
     name_field = obj_config["name_field"]
     date_field = obj_config["date_field"]
@@ -171,7 +171,7 @@ def delete_records(sf: Salesforce, sobject: str, records: list, dry_run: bool) -
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Delete CCIAUTO test records from Salesforce, keeping recent data."
+        description="Delete SFAUTO test records from Salesforce, keeping recent data."
     )
     parser.add_argument(
         "--keep-days", type=int, required=True,
