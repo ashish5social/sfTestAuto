@@ -12,6 +12,7 @@ Commands:
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -66,13 +67,31 @@ def main():
     hist_parser.add_argument("--status", help="Filter by status")
 
     # server command
-    subparsers.add_parser("server", help="Start the web dashboard")
+    # server — start / stop / status / restart
+    srv = subparsers.add_parser("server", help="Start/stop the web dashboard")
+    srv_sub = srv.add_subparsers(dest="server_cmd")
+    srv_start = srv_sub.add_parser("start", help="Start the dashboard")
+    srv_start.add_argument("-d", "--detach", action="store_true",
+                           help="Run in the background and return to the shell")
+    srv_start.add_argument("--port", type=int, default=None, help="Override port")
+    srv_sub.add_parser("stop", help="Stop a running dashboard")
+    srv_sub.add_parser("status", help="Show whether the dashboard is running")
+    srv_restart = srv_sub.add_parser("restart", help="Stop then start")
+    srv_restart.add_argument("-d", "--detach", action="store_true")
+    srv_restart.add_argument("--port", type=int, default=None)
 
     # doctor — preflight checks
     subparsers.add_parser("doctor", help="Verify environment, deps, browsers, org connectivity")
 
     # profiles — list org profiles
     subparsers.add_parser("profiles", help="List available org profiles")
+
+    # auth — capture a browser session for SSO/MFA orgs
+    auth_parser = subparsers.add_parser("auth", help="Manage saved browser sessions")
+    auth_sub = auth_parser.add_subparsers(dest="auth_cmd")
+    cap = auth_sub.add_parser("capture", help="Open a browser, log in yourself, save the session")
+    cap.add_argument("--out", default=None, help="Where to write the session JSON")
+    auth_sub.add_parser("status", help="Show whether a saved session exists and is fresh")
 
     # new — scaffold a test from the reference template
     new_parser = subparsers.add_parser("new", help="Scaffold a new test file + data JSON")
@@ -110,9 +129,7 @@ def main():
 
     # ── server command ──
     if args.command == "server":
-        from src.web.app import start
-        start()
-        return
+        sys.exit(_server(args))
 
     # ── list command ──
     if args.command == "list":
@@ -162,6 +179,9 @@ def main():
         print("\n  * = active (set SFAUTO_PROFILE to change)")
         return
 
+    if args.command == "auth":
+        sys.exit(_auth(args))
+
     if args.command == "doctor":
         sys.exit(_doctor())
 
@@ -210,6 +230,7 @@ def _doctor() -> int:
     """Preflight check. Returns a shell exit code (0 = all good)."""
     import importlib, os, shutil
 
+    warnings = 0
     ok, warn, fail = "  \033[32m✔\033[0m", "  \033[33m!\033[0m", "  \033[31m✘\033[0m"
     problems = 0
 
@@ -232,14 +253,25 @@ def _doctor() -> int:
             print(f"{fail} {pkg} missing — run: pip install -e ."); problems += 1
 
     # 3. Playwright browsers
+    # Probe the browser path without starting a driver connection, so we
+    # don't emit Playwright's async-teardown warnings into a diagnostic.
     try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as pw:
-            path = pw.chromium.executable_path
-            if path and os.path.exists(path):
-                print(f"{ok} Chromium installed")
-            else:
-                print(f"{fail} Chromium missing — run: playwright install chromium"); problems += 1
+        import glob as _glob
+        from pathlib import Path as _P
+        cache = _P.home() / "Library/Caches/ms-playwright"          # macOS
+        if not cache.exists():
+            cache = _P.home() / ".cache/ms-playwright"              # Linux
+        headed = _glob.glob(str(cache / "chromium-*"))
+        shell  = _glob.glob(str(cache / "chromium_headless_shell-*"))
+        if headed:
+            print(f"{ok} Chromium installed ({_P(sorted(headed)[-1]).name}, headed-capable)")
+        elif shell:
+            print(f"{warn} Only the headless shell is installed — headed runs "
+                  f"(BROWSER_HEADLESS=false) will fail.")
+            print( "       Fix: playwright install chromium")
+            warnings += 1
+        else:
+            print(f"{fail} Chromium missing — run: playwright install chromium"); problems += 1
     except Exception as e:
         print(f"{fail} Playwright check failed: {e}"); problems += 1
 
@@ -266,12 +298,21 @@ def _doctor() -> int:
             c = SFApiClient(); c.connect()
             print(f"{ok} Connected to org as user {c.current_user_id}")
         except Exception as e:
-            print(f"{warn} Could not reach org: {str(e)[:90]}")
-            print("       (credentials/URL/token or IP restrictions)")
+            lines = str(e).splitlines()
+            print(f"{warn} Could not reach org — {lines[0]}")
+            for ln in lines[1:]:
+                if ln.strip():
+                    print(f"       {ln}")
+            warnings += 1
 
     print("─" * 52)
-    print("All checks passed.\n" if problems == 0
-          else f"{problems} problem(s) found.\n")
+    if problems:
+        print(f"{problems} problem(s) must be fixed before tests can run.\n")
+    elif warnings:
+        print("Local setup is fine, but the org is not reachable "
+              "— see the warning above.\n")
+    else:
+        print("All checks passed.\n")
     return 0 if problems == 0 else 1
 
 
@@ -312,6 +353,167 @@ def _scaffold(name: str, *, api: bool = False) -> int:
     print(f"  Created {dst_data}")
     print(f"\n  Next:  edit the steps, then run")
     print(f"         sfauto test {dst_test}\n")
+    return 0
+
+
+
+# ── auth: capture / status ─────────────────────────────────────────────
+
+def _session_path(explicit=None) -> Path:
+    from src.core.config import config as _cfg
+    if explicit:
+        return Path(explicit)
+    return Path(_cfg.PROFILE.ui_login_options.get(
+        "storage_state_path", ".auth/storage_state.json"))
+
+
+def _auth(args) -> int:
+    from src.core.config import config as _cfg
+    path = _session_path(getattr(args, "out", None))
+
+    if getattr(args, "auth_cmd", None) == "status":
+        if not path.exists():
+            print(f"\n  No saved session at {path}")
+            print("  Create one:  sfauto auth capture\n"); return 1
+        import json, time
+        age_h = (time.time() - path.stat().st_mtime) / 3600
+        n = len(json.loads(path.read_text()).get("cookies", []))
+        print(f"\n  Session : {path}")
+        print(f"  Cookies : {n}")
+        print(f"  Age     : {age_h:.1f}h  {'(likely expired)' if age_h > 12 else '(probably still valid)'}\n")
+        return 0
+
+    # capture
+    url = _cfg.PROFILE.login_url
+    print(f"\n  Opening {url}")
+    print("  Log in in the browser window that appears — including any SSO/MFA.")
+    print("  When you reach Lightning, come back here and press ENTER.\n")
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  playwright not installed"); return 1
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=False)
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        page.goto(url)
+        try:
+            input("  Press ENTER once you are logged in... ")
+        except (EOFError, KeyboardInterrupt):
+            print("\n  Cancelled."); browser.close(); return 1
+        landed = page.url
+        if "login" in landed and "lightning" not in landed:
+            print(f"\n  ! Still on a login page ({landed[:70]}).")
+            print("    Session saved anyway — re-run if tests fail.")
+        ctx.storage_state(path=str(path))
+        browser.close()
+
+    import json
+    n = len(json.loads(path.read_text()).get("cookies", []))
+    print(f"\n  Saved {n} cookies to {path}")
+    print("  Set  ui_login: storage_state  in your profile to use it.\n")
+    return 0
+
+
+
+# ── server lifecycle ───────────────────────────────────────────────────
+
+PID_FILE = Path(".run/server.pid")
+
+
+def _server_pids(port: int) -> list[int]:
+    """PIDs serving this dashboard, found by PID file then by port.
+
+    The PID file is authoritative when present and live; the port scan is
+    the fallback for a server someone started by hand with uvicorn.
+    """
+    import subprocess as sp
+    pids: list[int] = []
+    if PID_FILE.exists():
+        try:
+            pid = int(PID_FILE.read_text().strip())
+            os.kill(pid, 0)          # raises if the process is gone
+            pids.append(pid)
+        except (ValueError, ProcessLookupError, PermissionError, OSError):
+            PID_FILE.unlink(missing_ok=True)
+    try:
+        out = sp.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True).stdout
+        pids += [int(x) for x in out.split() if x.isdigit()]
+    except FileNotFoundError:
+        pass
+    return sorted(set(pids))
+
+
+def _server(args) -> int:
+    import os as _os, signal, subprocess as sp, time
+    from src.core.config import config as _cfg
+
+    cmd = getattr(args, "server_cmd", None) or "start"   # bare `server` == start
+    port = getattr(args, "port", None) or _cfg.DASHBOARD_PORT
+    host = _cfg.DASHBOARD_HOST
+
+    if cmd == "status":
+        pids = _server_pids(port)
+        if pids:
+            print(f"\n  ● running on http://{host}:{port}  (pid {', '.join(map(str, pids))})\n")
+            return 0
+        print(f"\n  ○ not running (port {port} free)\n")
+        return 1
+
+    if cmd in ("stop", "restart"):
+        pids = _server_pids(port)
+        if not pids:
+            print(f"  ○ nothing to stop on port {port}")
+        else:
+            for pid in pids:
+                try: _os.kill(pid, signal.SIGTERM)
+                except OSError: pass
+            time.sleep(2)
+            still = _server_pids(port)
+            for pid in still:
+                try: _os.kill(pid, signal.SIGKILL)
+                except OSError: pass
+            PID_FILE.unlink(missing_ok=True)
+            print(f"  ✔ stopped (pid {', '.join(map(str, pids))})")
+        if cmd == "stop":
+            return 0
+        time.sleep(1)
+
+    # ── start ──────────────────────────────────────────────────────────
+    if _server_pids(port):
+        print(f"\n  ! already running on port {port}. Use:  sfauto server restart\n")
+        return 1
+
+    _cfg.ensure_dirs()
+
+    if getattr(args, "detach", False):
+        PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+        log = Path(".run/server.log")
+        with open(log, "ab") as fh:
+            proc = sp.Popen(
+                [sys.executable, "-m", "uvicorn", "src.web.app:app",
+                 "--host", host, "--port", str(port)],
+                stdout=fh, stderr=fh, start_new_session=True,
+            )
+        PID_FILE.write_text(str(proc.pid))
+        time.sleep(3)
+        if proc.poll() is not None:
+            print(f"\n  ✘ failed to start — see {log}\n"); return 1
+        print(f"\n  ● started  http://{host}:{port}   (pid {proc.pid})")
+        print(f"    logs : {log}")
+        print(f"    stop : sfauto server stop\n")
+        return 0
+
+    # foreground
+    print(f"\n{'=' * 58}")
+    print(f"  sfauto Test Runner")
+    print(f"  http://{host}:{port}")
+    print(f"  Ctrl-C to stop")
+    print(f"{'=' * 58}\n")
+    import uvicorn
+    uvicorn.run("src.web.app:app", host=host, port=port, reload=True)
     return 0
 
 

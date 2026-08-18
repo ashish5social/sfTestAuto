@@ -34,3 +34,7 @@ playwright-report/
 .idea/
 .vscode/
 *.swp
+
+# Server runtime state
+.run/
+.auth/

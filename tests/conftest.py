@@ -453,17 +453,38 @@ class SFHelpers:
     # ── sf_ui: auth ────────────────────────────────────────────────────
 
     def login(self, **overrides) -> str:
-        """Login to Salesforce. Picks up credentials from env vars
-        (SF_USERNAME, SF_PASSWORD, SF_SECURITY_TOKEN, SF_CLIENT_ID,
-        SF_CLIENT_SECRET, SF_LOGIN_URL) and falls back to the
-        frontdoor bypass when the org requires identity verification.
-        Pass keyword overrides to supply credentials directly.
+        """Authenticate the browser session.
 
-        Returns 'standard' or 'frontdoor' indicating which path was used.
+        The strategy comes from the active org profile
+        (``ui_login:`` in profiles/<org>.yml) so different orgs can use
+        completely different login flows without touching test code:
+
+            auto           probe the page and pick (default)
+            password       classic #username / #password form
+            frontdoor      session-id bypass (IP-gated orgs)
+            storage_state  reuse a session captured by `sfauto auth capture`
+            google_sso     org federated to Google
+
+        Register your own in src/core/sf_ui/login_strategies.py.
+        Returns the URL the browser landed on.
         """
+        from src.core.config import config as _cfg
+        from src.core.sf_ui.login_strategies import LoginContext, login as _do_login
+
         creds = sfui_auth.env_credentials()
         creds.update(overrides)
-        return sfui_auth.login_with_frontdoor_fallback(self._page, **creds)
+        profile = _cfg.PROFILE
+        ctx = LoginContext(
+            sf_url=creds.get("sf_url") or profile.login_url,
+            username=creds.get("username", ""),
+            password=creds.get("password", ""),
+            security_token=creds.get("security_token", ""),
+            client_id=creds.get("client_id"),
+            client_secret=creds.get("client_secret"),
+            options=profile.ui_login_options or {},
+        )
+        strategy = overrides.pop("strategy", None) or profile.ui_login
+        return _do_login(self._page, ctx, strategy)
 
     # ── sf_ui: navigation ──────────────────────────────────────────────
 

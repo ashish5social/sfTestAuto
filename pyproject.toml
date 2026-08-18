@@ -27,6 +27,11 @@ dependencies = [
     # transitively but we depend on it directly to keep the import path
     # honest if Playwright changes its deps.
     "Pillow>=10.0",
+    # JWT bearer auth (src/api/sf_api_client.py). simple-salesforce pulls
+    # these in transitively today, but we depend on them directly so the
+    # import path stays honest if that changes.
+    "pyjwt>=2.8",
+    "cryptography>=42.0",
 ]
 
 [project.scripts]

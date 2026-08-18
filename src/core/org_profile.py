@@ -51,7 +51,12 @@ class OrgProfile:
     namespace: str = ""
     # Some orgs restrict login by IP; frontdoor.jsp bypass uses a SOAP
     # session id. "auto" probes and falls back only when needed.
-    login_strategy: str = "auto"          # auto | standard | frontdoor
+    login_strategy: str = "auto"          # API auth: auto | standard | frontdoor
+
+    # UI login strategy — see src/core/sf_ui/login_strategies.py
+    #   auto | password | frontdoor | storage_state | google_sso | <your own>
+    ui_login: str = "auto"
+    ui_login_options: Dict[str, Any] = field(default_factory=dict)
 
     # ── Test data ─────────────────────────────────────────────────────
     # Prefix for every record the suite creates, so cleanup can find them.
@@ -96,6 +101,7 @@ _ENV_MAP = {
     "namespace": "SF_API_NAMESPACE",
     "login_strategy": "SF_LOGIN_STRATEGY",
     "record_prefix": "SFAUTO_RECORD_PREFIX",
+    "ui_login": "SF_UI_LOGIN",
 }
 
 
@@ -105,6 +111,20 @@ def _read_yaml(path: Path) -> Dict[str, Any]:
     if yaml is None:
         raise RuntimeError("pyyaml is required to read org profiles")
     return yaml.safe_load(path.read_text()) or {}
+
+
+def _normalise_url(url: str) -> str:
+    """Add a scheme if missing and strip a trailing slash.
+
+    A bare host like ``acme.my.salesforce.com`` makes urlparse().hostname
+    return None, which used to silently collapse the SOAP domain to
+    "test" and produce a misleading INVALID_LOGIN against the wrong
+    endpoint. Normalising here fixes every consumer at once.
+    """
+    url = (url or "").strip().rstrip("/")
+    if url and not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    return url
 
 
 def load_profile(name: str | None = None) -> OrgProfile:
@@ -126,6 +146,8 @@ def load_profile(name: str | None = None) -> OrgProfile:
     clean.setdefault("extras", {})
     clean["extras"] = {**extras, **(clean.get("extras") or {})}
     clean["name"] = name
+    if clean.get("login_url"):
+        clean["login_url"] = _normalise_url(clean["login_url"])
     return OrgProfile(**clean)
 
 

@@ -15,7 +15,8 @@ class Config:
     """Application configuration loaded from environment variables."""
 
     # Salesforce
-    SF_LOGIN_URL: str = os.getenv("SF_LOGIN_URL", "https://login.salesforce.com")
+    # Normalised via the org profile (adds https:// if the user omitted it).
+    SF_LOGIN_URL: str = ""  # set below from PROFILE
     SF_USERNAME: str = os.getenv("SF_USERNAME", "")
     SF_PASSWORD: str = os.getenv("SF_PASSWORD", "")
     SF_SECURITY_TOKEN: str = os.getenv("SF_SECURITY_TOKEN", "")
@@ -25,6 +26,7 @@ class Config:
     # between orgs — timezone, namespace, record prefix, label overrides —
     # lives here rather than in test code. See src/core/org_profile.py.
     PROFILE = load_profile()
+    SF_LOGIN_URL = PROFILE.login_url
 
     # Browser (default: headed mode, set to true for headless)
     BROWSER_HEADLESS: bool = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"

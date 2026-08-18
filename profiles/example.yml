@@ -19,6 +19,16 @@ namespace: "vlocity_cmt"
 # frontdoor- always use the SOAP session-id bypass
 login_strategy: auto
 
+# How the BROWSER logs in. Independent of API auth above.
+#   auto          probe the login page and pick
+#   password      classic #username / #password form
+#   frontdoor     session-id bypass for IP-gated orgs
+#   storage_state reuse a session from `sfauto auth capture` (SSO/MFA orgs)
+#   google_sso    org federated to Google
+ui_login: storage_state
+ui_login_options:
+  storage_state_path: .auth/storage_state.json
+
 # Prefix applied to every record the suite creates, so cleanup can find them.
 record_prefix: ACME
 

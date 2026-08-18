@@ -34,6 +34,36 @@ from src.core.config import config
 from src.api.api_tracker import APICall, APITracker
 
 
+
+
+def _oauth_err(resp) -> str:
+    """Extract Salesforce's OAuth error into one readable line."""
+    try:
+        j = resp.json()
+        return f"HTTP {resp.status_code} {j.get('error','')}: {j.get('error_description','')}".strip()
+    except Exception:
+        return f"HTTP {resp.status_code} {resp.text[:120]}"
+
+
+def _auth_hint(attempts) -> str:
+    """Turn the collected failures into a concrete next action."""
+    blob = " ".join(w.lower() for _, w in attempts)
+    if "soap api login() is disabled" in blob:
+        return ("Hint: SOAP login is disabled in this org (a default for newer orgs).\n"
+                "      If the org uses SSO (Google/Okta/SAML) there is no usable password.\n"
+                "      Use JWT bearer: create a private key + self-signed cert, upload the\n"
+                "      cert to your Connected App (Use Digital Signatures), pre-authorise\n"
+                "      the user, then set SF_JWT_KEY_FILE and SF_JWT_USERNAME.")
+    if "no client credentials user enabled" in blob:
+        return ("Hint: the Connected App has no 'Run As' user for the client-credentials\n"
+                "      flow. Setup -> App Manager -> your app -> Manage -> Edit Policies ->\n"
+                "      Client Credentials Flow -> set a Run As user.")
+    if "invalid_grant" in blob:
+        return ("Hint: invalid_grant usually means the username/password/token combination\n"
+                "      is wrong, or the org blocks the username-password flow.")
+    return "Hint: run `sfauto doctor` for a full preflight."
+
+
 class SFApiClient:
     """Salesforce API client with IP support and automatic tracking."""
 
@@ -49,50 +79,124 @@ class SFApiClient:
     # ── Authentication ────────────────────────────────────────
 
     def connect(self) -> None:
-        """Authenticate. OAuth client-credentials first, SOAP fallback."""
+        """Authenticate, trying each configured method in order.
+
+        Order: JWT bearer -> OAuth client-credentials -> OAuth password
+        -> SOAP username/password.
+
+        Every failure is collected and, if all methods fail, reported
+        together. Previously OAuth errors were swallowed by a bare
+        `except: pass`, so a misconfigured Connected App surfaced as a
+        confusing SOAP INVALID_LOGIN instead of the real cause.
+        """
         if self._sf is not None:
             return
 
-        # ── Method 1: OAuth client credentials ────────────────
-        client_id = os.getenv("SF_CLIENT_ID", "").strip()
-        client_secret = os.getenv("SF_CLIENT_SECRET", "").strip()
         login_url = config.SF_LOGIN_URL.rstrip("/")
-        if client_id and client_secret:
+        attempts: list[tuple[str, str]] = []   # (method, why it failed)
+
+        # ── Method 1: JWT bearer ──────────────────────────────────────
+        # The right flow for SSO-federated orgs (Google/Okta/SAML), where
+        # there is no usable Salesforce password to send.
+        key_file = os.getenv("SF_JWT_KEY_FILE", "").strip()
+        jwt_user = os.getenv("SF_JWT_USERNAME", "").strip() or config.SF_USERNAME
+        client_id = os.getenv("SF_CLIENT_ID", "").strip()
+        if key_file and client_id:
             try:
-                token_url = f"{login_url}/services/oauth2/token"
+                import jwt as _jwt  # PyJWT
+                import time as _time
+                with open(key_file, "rb") as fh:
+                    private_key = fh.read()
+                aud = ("https://test.salesforce.com"
+                       if "sandbox" in login_url or "test.salesforce" in login_url
+                       else "https://login.salesforce.com")
+                assertion = _jwt.encode(
+                    {"iss": client_id, "sub": jwt_user, "aud": aud,
+                     "exp": int(_time.time()) + 300},
+                    private_key, algorithm="RS256",
+                )
                 resp = requests.post(
-                    token_url,
-                    data={
-                        "grant_type": "client_credentials",
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                    },
+                    f"{login_url}/services/oauth2/token",
+                    data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                          "assertion": assertion},
                     timeout=30,
                 )
                 if resp.status_code == 200:
                     body = resp.json()
                     self._session_id = body["access_token"]
                     self._instance_url = body["instance_url"].rstrip("/")
-                    self._sf = Salesforce(
-                        session_id=self._session_id,
-                        instance_url=self._instance_url,
-                        version=self.api_version,
-                    )
+                    self._sf = Salesforce(session_id=self._session_id,
+                                          instance_url=self._instance_url,
+                                          version=self.api_version)
+                    self._auth_method = "oauth_jwt_bearer"
+                    self._log_auth("jwt", f"{login_url}/services/oauth2/token", 200, "jwt-bearer")
+                    self._discover_namespace()
+                    return
+                attempts.append(("JWT bearer", _oauth_err(resp)))
+            except ImportError:
+                attempts.append(("JWT bearer", "PyJWT not installed (pip install pyjwt cryptography)"))
+            except FileNotFoundError:
+                attempts.append(("JWT bearer", f"key file not found: {key_file}"))
+            except Exception as e:
+                attempts.append(("JWT bearer", f"{type(e).__name__}: {e}"))
+        elif client_id and not key_file:
+            attempts.append(("JWT bearer", "skipped (SF_JWT_KEY_FILE not set)"))
+
+        # ── Method 2: OAuth client credentials ────────────────────────
+        client_secret = os.getenv("SF_CLIENT_SECRET", "").strip()
+        if client_id and client_secret:
+            try:
+                token_url = f"{login_url}/services/oauth2/token"
+                resp = requests.post(
+                    token_url,
+                    data={"grant_type": "client_credentials",
+                          "client_id": client_id, "client_secret": client_secret},
+                    timeout=30,
+                )
+                if resp.status_code == 200:
+                    body = resp.json()
+                    self._session_id = body["access_token"]
+                    self._instance_url = body["instance_url"].rstrip("/")
+                    self._sf = Salesforce(session_id=self._session_id,
+                                          instance_url=self._instance_url,
+                                          version=self.api_version)
                     self._auth_method = "oauth_client_credentials"
                     self._log_auth("oauth", token_url, 200, "client_credentials")
                     self._discover_namespace()
                     return
-                # OAuth failed — fall through to SOAP silently so the
-                # report shows only the winning auth method.
-            except Exception:
-                # Network or request error on OAuth — silently fall back
-                # to SOAP; the SOAP branch will surface its own errors.
-                pass
+                attempts.append(("OAuth client-credentials", _oauth_err(resp)))
+            except Exception as e:
+                attempts.append(("OAuth client-credentials", f"{type(e).__name__}: {e}"))
+        else:
+            attempts.append(("OAuth client-credentials", "skipped (SF_CLIENT_ID/SECRET not set)"))
 
-        # ── Method 2: SOAP (username + password + security_token) ──
-        # Two-step login sidesteps simple-salesforce's mangled sf_instance
-        # for sandboxes with double-dash My-Domain hosts (myorg--dev...).
-        # Same pattern as scripts/cleanup_test_data.py.
+        # ── Method 3: OAuth password grant ────────────────────────────
+        if client_id and client_secret and config.SF_USERNAME and config.SF_PASSWORD:
+            try:
+                resp = requests.post(
+                    f"{login_url}/services/oauth2/token",
+                    data={"grant_type": "password", "client_id": client_id,
+                          "client_secret": client_secret,
+                          "username": config.SF_USERNAME,
+                          "password": config.SF_PASSWORD + (config.SF_SECURITY_TOKEN or "")},
+                    timeout=30,
+                )
+                if resp.status_code == 200:
+                    body = resp.json()
+                    self._session_id = body["access_token"]
+                    self._instance_url = body["instance_url"].rstrip("/")
+                    self._sf = Salesforce(session_id=self._session_id,
+                                          instance_url=self._instance_url,
+                                          version=self.api_version)
+                    self._auth_method = "oauth_password"
+                    self._log_auth("oauth", f"{login_url}/services/oauth2/token", 200, "password")
+                    self._discover_namespace()
+                    return
+                attempts.append(("OAuth password grant", _oauth_err(resp)))
+            except Exception as e:
+                attempts.append(("OAuth password grant", f"{type(e).__name__}: {e}"))
+
+        # ── Method 4: SOAP username + password + token ────────────────
         try:
             from urllib.parse import urlparse
 
@@ -102,23 +206,14 @@ class SFApiClient:
                 host = urlparse(login_url).hostname or ""
                 domain = host.replace(".salesforce.com", "") if host else "test"
 
-            # Step 1 — SOAP login to get a session token
-            sf_tmp = Salesforce(
-                username=config.SF_USERNAME,
-                password=config.SF_PASSWORD,
-                security_token=config.SF_SECURITY_TOKEN,
-                domain=domain,
-            )
+            sf_tmp = Salesforce(username=config.SF_USERNAME,
+                                password=config.SF_PASSWORD,
+                                security_token=config.SF_SECURITY_TOKEN,
+                                domain=domain)
             session_id = sf_tmp.session_id
-
-            # Step 2 — pin to the My-Domain host from SF_LOGIN_URL to avoid
-            # DNS issues when simple-salesforce returns a single-dash host.
             my_domain_host = login_url.replace("https://", "").replace("http://", "")
-            self._sf = Salesforce(
-                instance=my_domain_host,
-                session_id=session_id,
-                version=self.api_version,
-            )
+            self._sf = Salesforce(instance=my_domain_host, session_id=session_id,
+                                  version=self.api_version)
             self._session_id = session_id
             self._instance_url = f"https://{my_domain_host}".rstrip("/")
             self._auth_method = "soap_password"
@@ -126,8 +221,15 @@ class SFApiClient:
             self._discover_namespace()
             return
         except Exception as e:
-            self._log_auth("soap", login_url, 0, str(e))
-            raise
+            attempts.append(("SOAP username/password", str(e).split("\n")[0][:160]))
+
+        # ── All methods failed — report every attempt ─────────────────
+        self._log_auth("all", login_url, 0, "; ".join(f"{m}: {w}" for m, w in attempts))
+        lines = [f"Could not authenticate to {login_url}", ""]
+        for m, w in attempts:
+            lines.append(f"  - {m}: {w}")
+        lines += ["", _auth_hint(attempts)]
+        raise RuntimeError("\n".join(lines))
 
     def _log_auth(self, method: str, url: str, status: int, detail: str):
         """Record auth attempt as an APICall so it shows in the report."""
