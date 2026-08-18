@@ -152,7 +152,7 @@ DASHBOARD_HOST=0.0.0.0
 # --------------------------------------------------
 # 8. Create required directories
 # --------------------------------------------------
-foreach ($dir in @("tests\generated", "reports", "screenshots", "videos_tmp")) {
+foreach ($dir in @("tests\ui\data", "tests\api\data", "reports", "screenshots", "videos_tmp")) {
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
     }
@@ -173,8 +173,9 @@ Write-Host "  2. Activate the virtual environment:"
 Write-Host "       .\venv\Scripts\Activate.ps1"
 Write-Host ""
 Write-Host "Usage:"
-Write-Host "  Run a single test (headed):    sfauto test tests\generated\test_new_account_mobile_order_youth_direct.py"
-Write-Host "  Run a single test (headless):  sfauto test tests\generated\test_new_account_mobile_order_youth_direct.py --headless"
-Write-Host "  Run all tests:                 sfauto test tests\generated\"
-Write-Host "  Start web dashboard:           sfauto server"
+Write-Host "  Run all tests:                 sfauto test tests\"
+Write-Host "  Run one test (headed):         sfauto test tests\ui\test_create_account.py"
+Write-Host "  Run headless:                  sfauto test tests\ --headless"
+Write-Host "  Check your setup:              sfauto doctor"
+Write-Host "  Start web dashboard:           sfauto server start   (http://localhost:8091)"
 Write-Host ""

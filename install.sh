@@ -280,7 +280,7 @@ fi
 # ==================================================================
 # COMMON: Required directories
 # ==================================================================
-mkdir -p tests/generated tests/data tests/definitions reports screenshots videos_tmp
+mkdir -p tests/ui/data tests/api/data reports screenshots videos_tmp
 ok "Required directories verified"
 
 # ==================================================================
@@ -329,8 +329,8 @@ if [ "$MODE" = "developer" ]; then
     echo "       # Open http://localhost:8091"
     echo ""
     echo -e "  ${CYAN}${BOLD}Run a test:${NC}"
-    echo "       sfauto test tests/generated/test_create_business_account.py"
-    echo "       sfauto test tests/generated/test_create_business_account.py --headless"
+    echo "       sfauto test tests/"
+    echo "       sfauto test tests/ --headless"
     echo ""
 else
     echo ""
@@ -360,6 +360,6 @@ else
     echo "       pkill -f 'uvicorn.*src.web.app'"
     echo ""
     echo -e "  ${CYAN}${BOLD}Run a test:${NC}"
-    echo "       sfauto test tests/generated/test_create_business_account.py --headless"
+    echo "       sfauto test tests/ --headless"
     echo ""
 fi
