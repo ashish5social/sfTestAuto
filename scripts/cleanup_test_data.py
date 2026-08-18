@@ -48,7 +48,12 @@ except ImportError:
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
-MARKER = "SFAUTO"
+# Marker comes from the ACTIVE ORG PROFILE, so each org can use its own
+# record prefix (profiles/<org>.yml -> record_prefix) without editing code.
+#   SFAUTO_PROFILE=acme-uat python scripts/cleanup_test_data.py --dry-run
+from src.core.org_profile import load_profile
+
+MARKER = load_profile().record_prefix
 
 # Salesforce objects to scan, in deletion order (children first, parents last).
 # Each entry: (SObject API name, Name field, optional parent-lookup field)
