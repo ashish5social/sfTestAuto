@@ -1,6 +1,13 @@
 {
   "account_name_prefix": "API_Acct_",
-  "create": { "Industry": "Technology", "BillingCity": "San Francisco", "BillingCountry": "USA" },
-  "update": { "Industry": "Consulting", "Description": "Updated by sfauto API test" },
+  "create": {
+    "Industry": "Technology",
+    "BillingCity": "San Francisco",
+    "BillingCountry": "United States"
+  },
+  "update": {
+    "Industry": "Consulting",
+    "Description": "Updated by sfauto API test"
+  },
   "cleanup": true
 }

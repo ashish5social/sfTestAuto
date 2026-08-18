@@ -6,7 +6,7 @@
     "city": "San Francisco",
     "state": "CA",
     "zip": "94105",
-    "country": "USA"
+    "country": "United States"
   },
   "expected_toast": "was created",
   "timeout_ms": 30000

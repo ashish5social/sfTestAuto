@@ -385,28 +385,42 @@ def _auth(args) -> int:
 
     # capture
     url = _cfg.PROFILE.login_url
+    timeout_s = int(os.getenv("SFAUTO_CAPTURE_TIMEOUT", "300"))
     print(f"\n  Opening {url}")
-    print("  Log in in the browser window that appears — including any SSO/MFA.")
-    print("  When you reach Lightning, come back here and press ENTER.\n")
+    print("  Log in in the browser window — including any SSO / MFA.")
+    print(f"  Capture completes automatically once you reach Lightning "
+          f"(waiting up to {timeout_s//60} min).\n")
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
         print("  playwright not installed"); return 1
 
     path.parent.mkdir(parents=True, exist_ok=True)
+    landed = ""
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=False)
         ctx = browser.new_context()
         page = ctx.new_page()
         page.goto(url)
-        try:
-            input("  Press ENTER once you are logged in... ")
-        except (EOFError, KeyboardInterrupt):
-            print("\n  Cancelled."); browser.close(); return 1
-        landed = page.url
-        if "login" in landed and "lightning" not in landed:
-            print(f"\n  ! Still on a login page ({landed[:70]}).")
-            print("    Session saved anyway — re-run if tests fail.")
+        # Poll for a logged-in Lightning URL instead of blocking on input(),
+        # so this works when driven by a tool/agent with no TTY.
+        import time as _t
+        deadline = _t.time() + timeout_s
+        while _t.time() < deadline:
+            try:
+                u = page.url
+            except Exception:
+                break
+            if ("lightning.force.com" in u or "/lightning/" in u
+                    or "salesforce-setup.com" in u):
+                landed = u
+                break
+            _t.sleep(2)
+        if not landed:
+            print("  ! Timed out before reaching Lightning — saving anyway.")
+        else:
+            print(f"  ✔ Detected login: {landed[:70]}")
+        _t.sleep(3)          # let post-login cookies settle
         ctx.storage_state(path=str(path))
         browser.close()
 
