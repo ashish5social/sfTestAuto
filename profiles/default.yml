@@ -1,0 +1,31 @@
+# Default org profile. Copy this to <your-org>.yml and select it with:
+#   SFAUTO_PROFILE=<your-org> sfauto test tests/ui
+#
+# Every value here can be overridden by an environment variable, so CI never
+# needs to edit this file. Credentials NEVER live here — they go in .env.
+
+login_url: https://test.salesforce.com   # prod: https://login.salesforce.com
+api_version: v59.0
+
+# Org timezone — date fields are typed in the ORG's timezone, not the runner's.
+timezone: UTC
+
+# Managed-package namespace for Salesforce Industries / OmniStudio.
+# Leave empty for core-only orgs. Examples: vlocity_cmt, vlocity_ins, omnistudio
+namespace: ""
+
+# auto     - try standard login, fall back to frontdoor.jsp if IP-restricted
+# standard - username/password form only
+# frontdoor- always use the SOAP session-id bypass
+login_strategy: auto
+
+# Prefix applied to every record the suite creates, so cleanup can find them.
+record_prefix: SFAUTO
+
+# Override any field label your org has renamed.
+labels: {}
+#  account_name: Account Name
+#  close_date: Close Date
+
+# Free-form values your tests can read via profile.get("key")
+extras: {}

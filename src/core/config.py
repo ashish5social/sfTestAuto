@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+from src.core.org_profile import load_profile
+
 # Load .env from project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
@@ -18,6 +20,11 @@ class Config:
     SF_PASSWORD: str = os.getenv("SF_PASSWORD", "")
     SF_SECURITY_TOKEN: str = os.getenv("SF_SECURITY_TOKEN", "")
     SF_ORG_ID: str = os.getenv("SF_ORG_ID", "")
+
+    # Active org profile (profiles/<name>.yml). Everything that differs
+    # between orgs — timezone, namespace, record prefix, label overrides —
+    # lives here rather than in test code. See src/core/org_profile.py.
+    PROFILE = load_profile()
 
     # Browser (default: headed mode, set to true for headless)
     BROWSER_HEADLESS: bool = os.getenv("BROWSER_HEADLESS", "false").lower() == "true"

@@ -1,0 +1,13 @@
+{
+  "record_type": "",
+  "account_name_prefix": "UI_Acct_",
+  "billing": {
+    "street": "1 Market St",
+    "city": "San Francisco",
+    "state": "CA",
+    "zip": "94105",
+    "country": "USA"
+  },
+  "expected_toast": "was created",
+  "timeout_ms": 30000
+}

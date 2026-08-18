@@ -6,6 +6,9 @@ Commands:
   list       - List all test definitions
   history    - Show run history
   server     - Start the web dashboard
+  doctor     - Preflight: verify env, deps, browsers and org connectivity
+  new        - Scaffold a new test (UI or API) from the reference template
+  profiles   - List available org profiles
 """
 
 import argparse
@@ -20,7 +23,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="sfauto CLI",
         epilog="Examples:\n"
-               "  sfauto test tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py\n"
+               "  sfauto doctor                          # check setup before anything else\n"
+               "  sfauto new my_case --ui                # scaffold tests/ui/test_my_case.py\n"
+               "  sfauto test tests/ui/test_create_account.py\n"
                "  sfauto test tests/api/                  # run all API tests\n"
                "  sfauto test tests/ --headless           # run everything headless\n"
                "  sfauto server\n",
@@ -62,6 +67,19 @@ def main():
 
     # server command
     subparsers.add_parser("server", help="Start the web dashboard")
+
+    # doctor — preflight checks
+    subparsers.add_parser("doctor", help="Verify environment, deps, browsers, org connectivity")
+
+    # profiles — list org profiles
+    subparsers.add_parser("profiles", help="List available org profiles")
+
+    # new — scaffold a test from the reference template
+    new_parser = subparsers.add_parser("new", help="Scaffold a new test file + data JSON")
+    new_parser.add_argument("name", help="Snake_case test name, e.g. create_opportunity")
+    grp = new_parser.add_mutually_exclusive_group()
+    grp.add_argument("--ui", action="store_true", help="Scaffold a UI test (default)")
+    grp.add_argument("--api", action="store_true", help="Scaffold an API test")
 
     args = parser.parse_args()
 
@@ -129,6 +147,27 @@ def main():
         return
 
     # ── generate command ──
+    if args.command == "profiles":
+        from src.core.org_profile import available_profiles, load_profile
+        names = available_profiles()
+        if not names:
+            print("No profiles found in profiles/")
+            return
+        active = load_profile().name
+        print("Org profiles:")
+        for n in names:
+            p = load_profile(n)
+            mark = "*" if n == active else " "
+            print(f"  {mark} {n:<16} tz={p.timezone:<20} ns={p.namespace or '-':<14} prefix={p.record_prefix}")
+        print("\n  * = active (set SFAUTO_PROFILE to change)")
+        return
+
+    if args.command == "doctor":
+        sys.exit(_doctor())
+
+    if args.command == "new":
+        sys.exit(_scaffold(args.name, api=args.api))
+
     if args.command == "generate":
         from src.core.playwright_generator import PlaywrightGenerator
         test_path = Path(args.test)
@@ -162,6 +201,118 @@ def main():
         print(f"\nRun all:  sfauto test {output_dir}/")
         print()
         return
+
+
+
+# ── doctor ─────────────────────────────────────────────────────────────
+
+def _doctor() -> int:
+    """Preflight check. Returns a shell exit code (0 = all good)."""
+    import importlib, os, shutil
+
+    ok, warn, fail = "  \033[32m✔\033[0m", "  \033[33m!\033[0m", "  \033[31m✘\033[0m"
+    problems = 0
+
+    print("\nsfauto doctor\n" + "─" * 52)
+
+    # 1. Python
+    v = sys.version_info
+    if (v.major, v.minor) >= (3, 11):
+        print(f"{ok} Python {v.major}.{v.minor}.{v.micro}")
+    else:
+        print(f"{fail} Python {v.major}.{v.minor} — need >= 3.11"); problems += 1
+
+    # 2. Dependencies
+    for mod, pkg in (("playwright", "playwright"), ("pytest", "pytest"),
+                     ("fastapi", "fastapi"), ("yaml", "pyyaml"),
+                     ("simple_salesforce", "simple-salesforce"), ("dotenv", "python-dotenv")):
+        try:
+            importlib.import_module(mod); print(f"{ok} {pkg}")
+        except ImportError:
+            print(f"{fail} {pkg} missing — run: pip install -e ."); problems += 1
+
+    # 3. Playwright browsers
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            path = pw.chromium.executable_path
+            if path and os.path.exists(path):
+                print(f"{ok} Chromium installed")
+            else:
+                print(f"{fail} Chromium missing — run: playwright install chromium"); problems += 1
+    except Exception as e:
+        print(f"{fail} Playwright check failed: {e}"); problems += 1
+
+    # 4. Org profile
+    try:
+        from src.core.org_profile import load_profile
+        p = load_profile()
+        print(f"{ok} Profile '{p.name}' (tz={p.timezone}, ns={p.namespace or 'none'})")
+    except Exception as e:
+        print(f"{fail} Profile load failed: {e}"); problems += 1
+
+    # 5. Credentials
+    missing = config.validate()
+    if missing:
+        print(f"{fail} Credentials: {', '.join(missing)}")
+        print("       Create a .env from .env.example"); problems += 1
+    else:
+        print(f"{ok} Credentials present (SF_USERNAME, SF_PASSWORD)")
+
+    # 6. Live org connectivity (only if creds exist)
+    if not missing:
+        try:
+            from src.api.sf_api_client import SFApiClient
+            c = SFApiClient(); c.connect()
+            print(f"{ok} Connected to org as user {c.current_user_id}")
+        except Exception as e:
+            print(f"{warn} Could not reach org: {str(e)[:90]}")
+            print("       (credentials/URL/token or IP restrictions)")
+
+    print("─" * 52)
+    print("All checks passed.\n" if problems == 0
+          else f"{problems} problem(s) found.\n")
+    return 0 if problems == 0 else 1
+
+
+# ── scaffold ───────────────────────────────────────────────────────────
+
+def _scaffold(name: str, *, api: bool = False) -> int:
+    """Copy the reference test + data JSON under a new name."""
+    import re, shutil
+    slug = re.sub(r"[^a-z0-9_]+", "_", name.lower()).strip("_")
+    if not slug:
+        print("Invalid name."); return 1
+
+    kind = "api" if api else "ui"
+    src_test = Path(f"tests/{kind}/") / ("test_account_api.py" if api else "test_create_account.py")
+    src_data = Path(f"tests/{kind}/data/") / ("account_api.json" if api else "create_account.json")
+    if not src_test.exists():
+        print(f"Reference template missing: {src_test}"); return 1
+
+    dst_test = Path(f"tests/{kind}/test_{slug}.py")
+    dst_data = Path(f"tests/{kind}/data/{slug}.json")
+    if dst_test.exists():
+        print(f"Already exists: {dst_test}"); return 1
+
+    cls = "".join(w.capitalize() for w in slug.split("_"))
+    body = src_test.read_text()
+    body = body.replace("class TestCreateAccount:", f"class Test{cls}:")
+    body = body.replace("class TestAccountApi:", f"class Test{cls}:")
+    body = body.replace("def test_create_account(self)", f"def test_{slug}(self)")
+    body = body.replace("def test_account_crud(self)", f"def test_{slug}(self)")
+    body = body.replace('"data" / "create_account.json"', f'"data" / "{slug}.json"')
+    body = body.replace('"data" / "account_api.json"', f'"data" / "{slug}.json"')
+
+    dst_data.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(src_data, dst_data)
+    dst_test.write_text(body)
+
+    print(f"\n  Created {dst_test}")
+    print(f"  Created {dst_data}")
+    print(f"\n  Next:  edit the steps, then run")
+    print(f"         sfauto test {dst_test}\n")
+    return 0
 
 
 if __name__ == "__main__":

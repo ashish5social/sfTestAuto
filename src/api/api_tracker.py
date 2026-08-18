@@ -81,7 +81,10 @@ class APITracker:
         desc_suffix = f" - {description}" if description else ""
         print(f"\n  ▶ Step {number}: {name}{desc_suffix}")
 
-    def pass_step(self):
+    def pass_step(self, screenshot_path: str | None = None):
+        # screenshot_path is accepted (and ignored) so this tracker
+        # satisfies the same contract as StepTracker, letting one
+        # StepRunner implementation drive both UI and API tests.
         if not self.steps:
             return
         s = self.steps[-1]
@@ -90,7 +93,7 @@ class APITracker:
         s["duration_sec"] = (s["ended_at"] - s["started_at"]).total_seconds()
         print(f"    ✓ Step {s['number']} PASSED in {s['duration_sec']:.2f}s")
 
-    def fail_step(self, error: str):
+    def fail_step(self, error: str, screenshot_path: str | None = None):
         if not self.steps:
             return
         s = self.steps[-1]
@@ -155,6 +158,26 @@ class APITracker:
         _fmt("RES ", call.response_body)
         if call.error:
             print(f"        ERR : {call.error}")
+
+    def step(self, number: int, label: str, description: str = ""):
+        """Context manager for one API step — mirrors ``sf.step()`` in UI tests.
+
+        StepRunner only needs start_step/pass_step/fail_step/add_assertion,
+        all of which this tracker implements, so the same implementation
+        backs both test types. Screenshots are skipped (no browser).
+
+            with t.step(1, "Create Account"):
+                rid = api.create("Account", {...})
+                t.assert_("id returned", bool(rid))
+        """
+        from src.core.sf_ui.step import StepRunner
+        if getattr(self, "_step_runner", None) is None:
+            self._step_runner = StepRunner(self, screenshot_taker=None)
+        return self._step_runner.step(number, label, description)
+
+    def assert_(self, description: str, passed: bool) -> None:
+        """Alias for add_assertion, so API tests read like UI tests."""
+        self.add_assertion(description, bool(passed))
 
     def add_assertion(self, description: str, passed: bool):
         if not self.steps:
