@@ -1,6 +1,6 @@
 <div align="center">
 
-# CCI Test Automation
+# sfauto
 
 **A production-grade test platform for Salesforce Revenue Cloud (Vlocity CPQ + Communications Cloud).**
 
@@ -36,7 +36,7 @@ UI tests in real browsers (Chrome / Edge / Firefox / Safari-WebKit), API tests a
 
 ## What is this
 
-CCI Test Automation is an end-to-end test platform for the Salesforce Communications Cloud / Vlocity CPQ sandbox. It runs both UI tests (browser-driven, via Playwright) and API tests (REST + SOAP + Vlocity Integration Procedures) against a live Salesforce org, captures everything they touch, and surfaces the results through a self-hosted dashboard and an automated CI workflow.
+sfauto is an end-to-end test platform for the Salesforce org (core, and optionally Industries / Vlocity CPQ). It runs both UI tests (browser-driven, via Playwright) and API tests (REST + SOAP + Vlocity Integration Procedures) against a live Salesforce org, captures everything they touch, and surfaces the results through a self-hosted dashboard and an automated CI workflow.
 
 It is built around four principles:
 
@@ -53,13 +53,13 @@ For a developer laptop (macOS / Linux / WSL):
 
 ```bash
 # 1. Clone
-git clone https://github.com/IdeaHelixHQ/ih_cci_test_automation.git
-cd ih_cci_test_automation
+git clone https://github.com/<you>/sfauto.git
+cd sfauto
 
 # 2. Install — creates venv, installs Python deps, downloads all four
 #    Playwright browsers (Chromium + Chrome + Firefox + WebKit + Edge).
 #    Total download is ~600 MB. To install only Chromium (faster):
-#    CCI_INSTALL_BROWSERS=chromium ./install.sh
+#    SFAUTO_INSTALL_BROWSERS=chromium ./install.sh
 ./install.sh           # macOS / Linux
 # or, on Windows PowerShell:
 # .\install.ps1
@@ -69,15 +69,15 @@ cp .env.example .env
 $EDITOR .env           # fill in SF_USERNAME, SF_PASSWORD, SF_LOGIN_URL,
                        # SF_CLIENT_ID, SF_CLIENT_SECRET (External Client App)
 
-# 4. Activate venv + install the cci CLI
+# 4. Activate venv + install the sfauto CLI
 source venv/bin/activate
 pip install -e .
 
 # 5a. Run a single test from the CLI
-cci test tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py
+sfauto test tests/ui/test_create_account.py
 
 # 5b. OR start the dashboard and run tests interactively
-cci server
+sfauto server
 # → open http://localhost:8091/runner
 ```
 
@@ -92,7 +92,7 @@ The framework ships a `workflow_dispatch` GitHub Actions workflow you can trigge
 
 ### Step-by-step
 
-1. **Push the framework to your repo** (or fork `IdeaHelixHQ/ih_cci_test_automation`).
+1. **Push the framework to your repo** (or fork `IdeaHelixHQ/sfauto`).
 2. **Add repository secrets** at `Settings → Secrets and variables → Actions`:
    - `SF_USERNAME` — Salesforce username
    - `SF_PASSWORD` — Salesforce password
@@ -102,7 +102,7 @@ The framework ships a `workflow_dispatch` GitHub Actions workflow you can trigge
    - `SMTP_USERNAME` + `SMTP_PASSWORD` — Mailjet API public + private keys (optional, only needed if you want email notifications)
    - `GH_PAT` — fine-grained PAT with `contents:write` + `workflows:write` (optional, only needed for the auto-sync workflow that refreshes the test dropdown when test files change)
 3. **Enable GitHub Pages** at `Settings → Pages → Source: gh-pages branch`. The workflow publishes the combined report to `https://<owner>.github.io/<repo>/runs/<run-id>/`.
-4. **Trigger a run** at `Actions → CCI UI Test Automation → Run workflow`:
+4. **Trigger a run** at `Actions → Salesforce UI Test Automation → Run workflow`:
 
    ![Workflow inputs](https://docs.github.com/assets/cb-25535/mw-1440/images/help/repository/workflow-dispatch-event.webp)
 
@@ -124,9 +124,9 @@ The framework ships a `workflow_dispatch` GitHub Actions workflow you can trigge
 ### Email summary you'll get
 
 ```
-Subject: [PASSED] CCI Test Run run-15-20260521-1138 — 3/4 passed
+Subject: [PASSED] Salesforce Test Run run-15-20260521-1138 — 3/4 passed
 
-CCI Test Run Complete
+Salesforce Test Run Complete
 [PASSED]
 
 Run         run-15-20260521-1138
@@ -134,7 +134,7 @@ Branch      main @ a1b2c3d
 Tests       all
 Browser     chrome
 Workers     2
-Triggered   ashish-ideahelix
+Triggered   ashish-sfauto
 
 Total       4
 Passed      3
@@ -175,8 +175,8 @@ apt install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
 
 # 2. Clone the repo
 cd /opt
-git clone https://github.com/IdeaHelixHQ/ih_cci_test_automation.git
-cd ih_cci_test_automation
+git clone https://github.com/<you>/sfauto.git
+cd sfauto
 
 # 3. Create venv + install (avoid running install.sh as root if your team
 #    will SSH as a non-root user; install.sh respects $PWD)
@@ -196,20 +196,20 @@ nano .env                                            # paste SF_* values
 
 ### Run the dashboard under systemd (always-on)
 
-Create `/etc/systemd/system/cci-dashboard.service`:
+Create `/etc/systemd/system/sfauto-dashboard.service`:
 
 ```ini
 [Unit]
-Description=CCI Test Automation dashboard
+Description=sfauto dashboard
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/ih_cci_test_automation
-Environment="PATH=/opt/ih_cci_test_automation/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-EnvironmentFile=/opt/ih_cci_test_automation/.env
-ExecStart=/opt/ih_cci_test_automation/venv/bin/cci server
+WorkingDirectory=/opt/sfauto
+Environment="PATH=/opt/sfauto/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+EnvironmentFile=/opt/sfauto/.env
+ExecStart=/opt/sfauto/venv/bin/sfauto server
 Restart=on-failure
 RestartSec=5
 
@@ -221,19 +221,19 @@ Enable + start:
 
 ```bash
 systemctl daemon-reload
-systemctl enable --now cci-dashboard
-systemctl status cci-dashboard         # confirm it's running
-journalctl -u cci-dashboard -f         # tail logs
+systemctl enable --now sfauto-dashboard
+systemctl status sfauto-dashboard         # confirm it's running
+journalctl -u sfauto-dashboard -f         # tail logs
 ```
 
 ### Expose it through nginx with HTTPS
 
-The dashboard uses Server-Sent Events + WebSockets for live screencast, so the nginx config must support long-lived connections. Save as `/etc/nginx/sites-available/cci-dashboard`:
+The dashboard uses Server-Sent Events + WebSockets for live screencast, so the nginx config must support long-lived connections. Save as `/etc/nginx/sites-available/sfauto-dashboard`:
 
 ```nginx
 server {
     listen 80;
-    server_name cci.yourcompany.com;
+    server_name sfauto.yourcompany.com;
 
     # SSE + WebSocket support
     proxy_http_version 1.1;
@@ -262,18 +262,18 @@ server {
 Enable, then get a free Let's Encrypt cert:
 
 ```bash
-ln -s /etc/nginx/sites-available/cci-dashboard /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/sfauto-dashboard /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 ufw allow 'Nginx Full' && ufw allow ssh && ufw --force enable
 
 # HTTPS via Let's Encrypt — replace email + domain
 snap install --classic certbot
 ln -s /snap/bin/certbot /usr/bin/certbot
-certbot --nginx -m you@yourcompany.com -d cci.yourcompany.com \
+certbot --nginx -m you@yourcompany.com -d sfauto.yourcompany.com \
         --agree-tos --redirect --non-interactive
 ```
 
-Done. The dashboard is now at `https://cci.yourcompany.com/runner`.
+Done. The dashboard is now at `https://sfauto.yourcompany.com/runner`.
 
 ### Headless display sizing on the VPS
 
@@ -282,18 +282,18 @@ Tests run headless by default on the VPS (no X server needed). If you ever want 
 ```bash
 apt install -y xvfb
 xvfb-run -a --server-args='-screen 0 1920x1080x24' \
-    cci test tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py
+    sfauto test tests/ui/test_create_account.py
 ```
 
 ### Updating the deployment
 
 ```bash
-cd /opt/ih_cci_test_automation
+cd /opt/sfauto
 git pull
 source venv/bin/activate
 pip install -e .                              # pulls in any new deps
 playwright install chromium firefox webkit    # if Playwright was bumped
-systemctl restart cci-dashboard
+systemctl restart sfauto-dashboard
 ```
 
 ### Resource sizing
@@ -323,7 +323,7 @@ Each headless Chromium with video recording uses ~600-900 MB; four in parallel c
 | **Browser selector** | Chrome / Edge / Firefox / Safari (WebKit) — dashboard + CI both. Per-browser launch args handled automatically; CDP screencast gracefully degrades for non-Chromium browsers. |
 | **Per-slot cancellation** | Stop one worker without killing the rest of the run. |
 | **Re-run failed (manual)** | One-click button on every history row + post-run pane that resubmits only the failing tests. No auto-retry. |
-| **Millisecond + slot timestamps** | Account names like `CCIAUTO_Biz_0521_113900_a1b1s2` never collide across parallel workers. |
+| **Millisecond + slot timestamps** | Account names like `SFAUTO_Biz_0521_113900_a1b1s2` never collide across parallel workers. |
 
 ### Live monitoring (dashboard)
 
@@ -400,7 +400,7 @@ flowchart TB
         Comb[Combined run HTML<br/>gutter + iframe]
     end
 
-    SF[(Salesforce CCI sandbox<br/>UI + REST + IPs)]
+    SF[(Salesforce Salesforce sandbox<br/>UI + REST + IPs)]
 
     UI --> Pool
     Q --> W0 & W1 & W2 & W3
@@ -450,11 +450,11 @@ sequenceDiagram
 ## Project layout
 
 ```
-ih_cci_test_automation/
+sfauto/
 ├── README.md                          ← you're reading it
 ├── CLAUDE.md                          ← AI session context (don't edit unless extending the AI workflow)
 ├── install.sh / install.ps1           ← one-step setup
-├── pyproject.toml                     ← Python deps + cci CLI entry point
+├── pyproject.toml                     ← Python deps + sfauto CLI entry point
 ├── .env.example                       ← template for Salesforce credentials
 │
 ├── src/
@@ -543,7 +543,7 @@ Both flavours share the dashboard, the parallel pool, the combined report, the C
 ### From the dashboard
 
 ```bash
-cci server
+sfauto server
 # → open http://localhost:8091/runner
 ```
 
@@ -553,16 +553,16 @@ The Tests tab lists every test under `tests/ui/` and `tests/api/`. Check boxes, 
 
 ```bash
 # A single file
-cci test tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py
+sfauto test tests/ui/test_create_account.py
 
 # Everything in a folder
-cci test tests/api
+sfauto test tests/api
 
 # Headless (default)
-cci test tests/ --headless
+sfauto test tests/ --headless
 
 # Update visual-regression baselines (UI tests only)
-cci test tests/ui --update-goldens
+sfauto test tests/ui --update-goldens
 ```
 
 ### Parallel + work-stealing
@@ -642,7 +642,7 @@ Two files. First the JSON data:
 // tests/ui/data/tc5_create_residential_quote_with_voip.json
 {
   "record_type": "Residential",
-  "account_name_prefix": "CCIAUTO_Res_",
+  "account_name_prefix": "SFAUTO_Res_",
   "addresses": [{ "full": "123 Test St, Springfield, IL", "region": "Central Region" }],
   "product": {
     "search_term": "VoIP Residential",
@@ -656,7 +656,7 @@ Two files. First the JSON data:
 Then the test file:
 
 ```python
-# tests/ui/test_cci_tc5_create_residential_quote_with_voip.py
+# tests/ui/test_create_account.py
 """TC5 — Create Residential Quote with VoIP."""
 
 import json, os
@@ -731,7 +731,7 @@ class TestCreateResidentialQuoteWithVoIP:
 That's the whole pattern. Each `with sf.step(...)` block becomes a row in the HTML report — pass or fail, with a screenshot, automatically.
 
 > [!IMPORTANT]
-> Every test record name **must** include `CCIAUTO` somewhere (e.g. `CCIAUTO_Biz_…`, `CCIAUTO_Res_…`). The cleanup script identifies test records by this marker.
+> Every test record name **must** include `CCIAUTO` somewhere (e.g. `SFAUTO_Biz_…`, `SFAUTO_Res_…`). The cleanup script identifies test records by this marker.
 
 ### The "I want to…" cookbook
 
@@ -747,7 +747,7 @@ That's the whole pattern. Each `with sf.step(...)` block becomes a row in the HT
 | Fill a date field | `sf.fill_date("Close Date", "12/31/2026")` |
 | Set a picklist / combobox / Aura picklist | `sf.set_picklist("Stage", "Closed Won")` |
 | Set the Stage on a new-Opportunity dialog | `sf.set_stage("Generate Interest")` |
-| Resolve a Lightning lookup (autocomplete + dialog) | `sf.fill_lookup("Account", "CCIAUTO_Biz_001")` |
+| Resolve a Lightning lookup (autocomplete + dialog) | `sf.fill_lookup("Account", "SFAUTO_Biz_001")` |
 | Select a record type radio | `sf.select_record_type("Business")` |
 | Wait for spinners + LWC mount | `sf.wait_page_ready(4000)` |
 | Wait for a toast to appear and finish | `sf.wait_for_toast("Saved", settled=True)` |
@@ -770,7 +770,7 @@ from src.core.sf_ui.forms import fill_lookup
 
 If a behaviour is repeated in two tests and there's no helper, **add one to the library** rather than copy-pasting. The whole point of `src/core/sf_ui/` is to be a shared toolbox.
 
-### Ten commandments of CCI test authoring
+### Ten commandments of Salesforce test authoring
 
 1. **Labels not selectors.** Always reach for `sf.fill(label, value)` before `page.locator(...)`.
 2. **One `sf.step()` per logical action.** Don't lump 5 sub-actions into one step — the report needs each named.
@@ -933,7 +933,7 @@ def test_my_flow(sf, tracker):
 
 What happens on each call:
 
-1. The current frame is saved to `screenshots/Test_CCI_UI_<ts>/<safe_name>.png`.
+1. The current frame is saved to `screenshots/Test_UI_<ts>/<safe_name>.png`.
 2. If `tests/ui/goldens/<test_stem>/<safe_name>.png` doesn't exist (or `UPDATE_GOLDENS=true` / `--update-goldens` is set), the current frame becomes the new baseline. Status: `baseline_created`.
 3. Otherwise the helper diffs current vs golden with Pillow, counts pixels above an 8/255 noise floor, and:
    - If the differing-pixel percentage is below `threshold_pct` (default 0.02 %), status: `match`.
@@ -941,7 +941,7 @@ What happens on each call:
 4. The result is appended to the current tracker step.
 5. The HTML report renders a three-pane block (**Current / Golden / Diff**) with the pixel-diff percentage.
 
-Mismatched image sizes always count as a diff. Refresh baselines with `cci test tests/ui --update-goldens` or `UPDATE_GOLDENS=true cci test tests/ui`.
+Mismatched image sizes always count as a diff. Refresh baselines with `sfauto test tests/ui --update-goldens` or `UPDATE_GOLDENS=true sfauto test tests/ui`.
 
 ---
 
@@ -953,12 +953,12 @@ Mismatched image sizes always count as a diff. Refresh baselines with `cci test 
 |---|---|---|
 | `SF_USERNAME`, `SF_PASSWORD` | — | Required for SOAP auth and UI login |
 | `SF_SECURITY_TOKEN` | — | Appended to password for API auth (not UI) |
-| `SF_LOGIN_URL` | — | e.g. `https://fidium--apitest1.sandbox.my.salesforce.com` |
+| `SF_LOGIN_URL` | — | e.g. `https://myorg--dev.sandbox.my.salesforce.com` |
 | `SF_CLIENT_ID`, `SF_CLIENT_SECRET` | — | OAuth client_credentials (preferred over SOAP) |
 | `BROWSER_HEADLESS` | `false` | `true` forces headless even without `--headless` |
-| `CCI_OUTPUT_DIR` | project root | Where reports/, screenshots/, videos_tmp/ live |
-| `CCI_API_LOG_FULL` | `false` | Disable 700-char body truncation in API logs |
-| `CCI_CAPTURE` | `0` | `1` enables Vlocity network capture to JSONL |
+| `SFAUTO_OUTPUT_DIR` | project root | Where reports/, screenshots/, videos_tmp/ live |
+| `SFAUTO_API_LOG_FULL` | `false` | Disable 700-char body truncation in API logs |
+| `SFAUTO_CAPTURE` | `0` | `1` enables Vlocity network capture to JSONL |
 | `UPDATE_GOLDENS` | `false` | `true` rewrites every visual-regression baseline |
 | `UI_TEST_RUN_ID` | — | Set by parallel runner — child run_id for screencast routing |
 | `UI_TEST_SLOT` | — | Set by parallel runner — 0..3, used for unique timestamps |
@@ -982,7 +982,7 @@ Mismatched image sizes always count as a diff. Refresh baselines with `cci test 
 |---|---|
 | `--headless` | Run browser in headless mode |
 | `--update-goldens` | Rewrite visual-regression baselines for this run |
-| `--output` | Override the CCI_OUTPUT_DIR |
+| `--output` | Override the SFAUTO_OUTPUT_DIR |
 | `--tb=short` | (pytest) shortened tracebacks |
 | `-n N` | (pytest-xdist) run with N parallel workers |
 | `--dist=loadfile` | (pytest-xdist) group by file — avoid two workers racing on the same per-test report file |
@@ -1047,7 +1047,7 @@ sf.set_picklist(picklist_label, value)
 | Add a new test from scratch | The [worked example](#adding-a-new-test-worked-example-tc5) above |
 | See what `sf` methods exist | The [library reference](#library-reference) above |
 | Understand a helper's internals | `src/core/sf_ui/<module>.py` — every function has a heavy docstring with "when this doesn't work" notes |
-| Look at an existing test as a model | `tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py` (UI) or `tests/api/test_cci_tc3_create_enterprise_quote_with_dia_api.py` (API) |
+| Look at an existing test as a model | `tests/ui/test_create_account.py` (UI) or `tests/api/test_account_api.py` (API) |
 | Understand the parallel pool | `src/web/parallel_runner.py` |
 | Customize the dashboard | `src/web/frontend/runner.html` (single file, no build step) |
 | Change report styling | `src/core/html_reporter.py` (UI) or `src/api/api_reporter.py` (API) |
@@ -1060,7 +1060,7 @@ sf.set_picklist(picklist_label, value)
 
 <div align="center">
 
-Built by [IdeaHelix](https://ideahelix.com).
+Built by [sfauto](https://sfauto.com).
 Bug reports, contributions, and questions welcome — open a GitHub issue.
 
 </div>

@@ -1,4 +1,4 @@
-# CCI Test Automation — Claude Session Brief
+# sfauto — Claude Session Brief
 
 > **If you're a fresh Claude session and don't know this project, read this file
 > first.** It's optimized for "get productive in 30 seconds with no prior context".
@@ -15,7 +15,7 @@ End-to-end test automation for **Salesforce Revenue Cloud / Communications Cloud
 - **UI tests** — Playwright drives real headless Chrome (or Edge/Firefox/WebKit) through Salesforce Lightning + Vlocity catalog/cart screens.
 - **API tests** — pure REST + SOAP + Vlocity Integration Procedure calls via `simple-salesforce` + `requests`, no browser.
 
-Both flavors share: the same `cci test` CLI, the same web dashboard, the same parallel pool (max 4 workers), the same HTML report format, the same CI workflow. The two flavors are explicitly twinned: TC1+TC2 are UI, TC3+TC4 are their API equivalents.
+Both flavors share: the same `sfauto test` CLI, the same web dashboard, the same parallel pool (max 4 workers), the same HTML report format, the same CI workflow. The two flavors are explicitly twinned: TC1+TC2 are UI, TC3+TC4 are their API equivalents.
 
 **Tech stack:** Python 3.11+, Playwright + pytest-playwright, pytest-xdist (CI parallelism), FastAPI (dashboard backend), React via CDN + Babel (dashboard frontend — single file, no build step), simple-salesforce, Pillow (visual regression diff).
 
@@ -30,8 +30,8 @@ If you're going to touch test code, read these in order before doing anything:
 | 1 | `README.md` | The single user-facing doc. Has install, features, writing tests, library reference, troubleshooting, CI walkthrough, VPS deploy. Skim sections 11 (Writing tests) + 12 (Library reference) — that's 80 % of what you'll do. |
 | 2 | `tests/conftest.py` | All framework wiring. Fixtures: `page`, `tracker`, `sf`, `api_tracker`, `sf_api`. Screencast bridge, browser-specific launch args, video recording, golden-image visual regression. |
 | 3 | `src/core/sf_ui/__init__.py` | What the high-level library exports. From here you can see the module boundaries: auth, navigation, forms, actions, waits, cart, step. |
-| 4 | `tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py` | The canonical UI test (22 steps). Read its first 200 lines + a couple of `tracker.start_step` blocks to learn the pattern. |
-| 5 | `tests/api/test_cci_tc3_create_enterprise_quote_with_dia_api.py` | The canonical API test. Same pattern but uses `sf_api.call_ip(...)` / `sf_api.create(...)` / `sf_api.soql(...)`. |
+| 4 | `tests/ui/test_create_account.py` | The canonical UI test (22 steps). Read its first 200 lines + a couple of `tracker.start_step` blocks to learn the pattern. |
+| 5 | `tests/api/test_account_api.py` | The canonical API test. Same pattern but uses `sf_api.call_ip(...)` / `sf_api.create(...)` / `sf_api.soql(...)`. |
 | 6 | `src/web/parallel_runner.py` | How the dashboard runs N tests in parallel. Spawns 1 pytest subprocess per slot, work-stealing queue, per-slot cancellation. CI uses pytest-xdist with the same model. |
 
 ---
@@ -39,15 +39,15 @@ If you're going to touch test code, read these in order before doing anything:
 ## 3. Project layout (annotated)
 
 ```
-ih_cci_test_automation/
+sfauto/
 ├── README.md                          ← user-facing single source of truth
 ├── CLAUDE.md                          ← (this file — Claude session brief)
 ├── install.sh / install.ps1           ← one-step setup (creates venv, installs deps + Chromium)
-├── pyproject.toml                     ← Python deps + `cci` CLI entry point
+├── pyproject.toml                     ← Python deps + `sfauto` CLI entry point
 ├── .env.example                       ← template for Salesforce credentials
 │
 ├── src/
-│   ├── cli.py                         ← `cci test`, `cci server`, `cci list` entry points
+│   ├── cli.py                         ← `sfauto test`, `sfauto server`, `sfauto list` entry points
 │   ├── core/
 │   │   ├── sf_ui/                     ← **HIGH-LEVEL SALESFORCE UI LIBRARY** (use this in new tests)
 │   │   │   ├── __init__.py            ←   re-exports StepRunner, step
@@ -62,7 +62,7 @@ ih_cci_test_automation/
 │   │   ├── html_reporter.py           ← per-test HTML with embedded screenshots + base64 .webm video
 │   │   ├── playwright_helpers.py      ← screenshot() + compare_screenshot() (visual regression diff)
 │   │   ├── step_renderer.py           ← renders {placeholder} tokens against JSON data (used by dashboard parser)
-│   │   ├── config.py                  ← CCI_OUTPUT_DIR, REPORTS_DIR, etc.
+│   │   ├── config.py                  ← SFAUTO_OUTPUT_DIR, REPORTS_DIR, etc.
 │   │   └── playwright_generator.py    ← legacy "generate test skeleton from YAML" CLI (no longer used; YAML is gone)
 │   ├── api/
 │   │   ├── sf_api_client.py           ← jsforce-like wrapper: soql, create, update, delete, call_ip, cpq_v2_* (1100+ lines, auto-logs everything to api_tracker)
@@ -81,15 +81,15 @@ ih_cci_test_automation/
 │
 ├── tests/
 │   ├── ui/
-│   │   ├── test_cci_tc1_create_enterprise_quote_with_dia.py    ← 22-step UI test, DIA product
-│   │   ├── test_cci_tc2_create_enterprise_quote_with_fbb.py    ← 22-step UI test, Fiber Broadband
+│   │   ├── test_create_account.py    ← 22-step UI test, DIA product
+│   │   ├── test_create_account.py    ← 22-step UI test, Fiber Broadband
 │   │   ├── data/
 │   │   │   ├── tc1_create_enterprise_quote_with_dia.json       ← addresses, products, bandwidth, expected
 │   │   │   └── tc2_create_enterprise_quote_with_fbb.json
 │   │   └── goldens/                   ← visual-regression baselines (created on demand)
 │   ├── api/
-│   │   ├── test_cci_tc3_create_enterprise_quote_with_dia_api.py  ← 13-step API twin of TC1, 5 steps commented out (Phases 4-6)
-│   │   ├── test_cci_tc4_create_enterprise_quote_with_fbb_api.py  ← 13-step API twin of TC2, 5 steps commented out
+│   │   ├── test_create_account.py  ← 13-step API twin of TC1, 5 steps commented out (Phases 4-6)
+│   │   ├── test_create_account.py  ← 13-step API twin of TC2, 5 steps commented out
 │   │   └── data/                       ← same shape as ui/data
 │   ├── draft/                          ← experimental / scratch tests — NOT picked up by CI or dashboard
 │   └── conftest.py                     ← all framework wiring (fixtures, screencast, golden diff, browser launch args)
@@ -221,7 +221,7 @@ it has the JSON values directly).
 ### Slot-aware TIMESTAMP
 
 Every test computes a unique timestamp so parallel runs don't collide on
-account names like `CCIAUTO_Biz_0521_113900`. Copy this block verbatim to
+account names like `SFAUTO_Biz_0521_113900`. Copy this block verbatim to
 new tests:
 
 ```python
@@ -246,7 +246,7 @@ pytest-xdist in CI. The fallback (no env) is for plain single-process runs.
 
 Every Salesforce record a test creates MUST have `CCIAUTO` somewhere in its
 Name field. `scripts/cleanup_test_data.py` finds + deletes records by this
-marker. Prefixes used: `CCIAUTO_Biz_`, `CCIAUTO_Quote_`, `CCIAUTO_API_`, etc.
+marker. Prefixes used: `SFAUTO_Biz_`, `SFAUTO_Quote_`, `SFAUTO_API_`, etc.
 
 ### Per-test report attribution
 
@@ -280,13 +280,13 @@ have "Enable Client Credentials Flow" + "Relax IP restrictions" turned on.
 
 | Path | Command |
 |---|---|
-| Dashboard | `cci server` → open http://localhost:8091/runner → pick tests + workers + browser → Run |
-| Single test (headed) | `cci test tests/ui/test_cci_tc1_create_enterprise_quote_with_dia.py` |
-| Whole folder | `cci test tests/ui` |
-| Headless | `cci test <path> --headless` |
-| Refresh visual-regression baselines | `cci test tests/ui --update-goldens` |
+| Dashboard | `sfauto server` → open http://localhost:8091/runner → pick tests + workers + browser → Run |
+| Single test (headed) | `sfauto test tests/ui/test_create_account.py` |
+| Whole folder | `sfauto test tests/ui` |
+| Headless | `sfauto test <path> --headless` |
+| Refresh visual-regression baselines | `sfauto test tests/ui --update-goldens` |
 | Parallel locally via xdist | `python -m pytest tests/ -n 4 --dist=loadfile --headless` |
-| CI | Actions tab → CCI UI Test Automation → Run workflow (tests / workers / browser / email inputs) |
+| CI | Actions tab → Salesforce UI Test Automation → Run workflow (tests / workers / browser / email inputs) |
 
 ---
 
@@ -393,4 +393,4 @@ When stuck, point the user at the relevant README section rather than guessing.
 - **README.md is the user-facing source of truth.** Always link to it (specific section anchors when possible) instead of restating its content in chat.
 - **CLAUDE.md (this file) is for YOU.** Update it when you make architectural changes that the next Claude session would otherwise have to rediscover.
 - **Run a sanity check before claiming done.** For Python edits: `python3 -c "import ast; ast.parse(open('<file>').read())"`. For YAML: `python3 -c "import yaml; yaml.safe_load(open('<file>').read())"`. For JSX in runner.html: there's no build step, so reload the page and watch the browser console.
-- **The user is Ashish at IdeaHelix.** US Pacific timezone. Prefers concise, decisive answers and is comfortable with deep technical discussion. He values explicit trade-offs over "it depends" hedging.
+- **The user is Ashish at sfauto.** US Pacific timezone. Prefers concise, decisive answers and is comfortable with deep technical discussion. He values explicit trade-offs over "it depends" hedging.
