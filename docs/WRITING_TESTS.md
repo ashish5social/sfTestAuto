@@ -79,11 +79,44 @@ def test_account_crud(self):
 | Auth | `sf.login()` |
 | Navigate | `sf.open_list_view("Account")`, `sf.open_record("Account", id)`, `sf.extract_record_id(sobject=...)` |
 | Forms | `sf.fill(label, v)`, `sf.fill_date(label, v)`, `sf.fill_lookup(label, v)`, `sf.set_picklist(label, v)`, `sf.set_stage(v)`, `sf.select_record_type(v)`, `sf.wait_form_ready([labels])` |
-| Actions | `sf.click(name)`, `sf.click_shadow_button(text)` |
+| Actions | `sf.click(name)`, `sf.click_shadow_button(text)`, `sf.confirm_duplicates()`, `sf.dismiss_error_dialog()` |
 | Waits | `sf.wait_spinner()`, `sf.wait_page_ready()`, `sf.wait_for_toast(text)`, `sf.wait_until(pred)` |
 | CPQ cart | `sf.search_catalog(term)`, `sf.add_product_to_cart(name)`, `sf.configure_attr(label, v)`, `sf.wait_summary_loaded()` |
 | Report | `sf.assert_(desc, cond)`, `sf.screenshot(name)`, `tracker.add_record(label=, name=, record_id=, object_type=)` |
-| API | `api.create/update/soql/describe/pick_record_type/pick_field/call_ip` |
+| API | `api.create/update/delete/soql/describe/pick_record_type/pick_field/call_ip` |
+
+## Three things that bite on a real org
+
+**Picklists are not text fields.** `Billing Country` and `Billing
+State/Province` render as comboboxes once the org enables State and
+Country picklists. Use `sf.set_picklist()`, not `sf.fill()` — and set
+Country *first*, because State's options depend on it. Fall back to
+`fill()` for orgs without the feature:
+
+```python
+for label, value in (("Billing Country", "United States"),
+                     ("Billing State/Province", "California")):
+    if value and not sf.set_picklist(label, value):
+        sf.fill(label, value)
+```
+
+**Duplicate rules will fail your second run.** Most orgs ship the
+Standard Duplicate Rules enabled, and test data repeats by design — so
+run two flags run one's record as "Similar Records Exist". On the API
+side `api.create()` already sends the allowSave header. On the UI side,
+acknowledge the warning:
+
+```python
+sf.assert_("'Save' clicked", sf.click("Save"))
+sf.confirm_duplicates()
+sf.wait_for_toast("was created")
+```
+
+**Register what you create.** `tracker.add_record(...)` does double duty:
+it renders the record link in the report *and* enrolls the record for
+deletion at teardown. A suite that leaves its data behind eventually
+poisons itself through the duplicate rules above. Set
+`SFAUTO_KEEP_RECORDS=1` when you need to inspect a failing run's data.
 
 ## Targeting a different org
 

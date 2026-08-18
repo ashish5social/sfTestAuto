@@ -38,3 +38,6 @@ playwright-report/
 # Server runtime state
 .run/
 .auth/
+
+# Private keys for JWT bearer auth
+.certs/

@@ -74,15 +74,26 @@ class TestCreateAccount:
             for label, value in (
                 ("Billing Street", BILLING["street"]),
                 ("Billing City", BILLING["city"]),
-                ("Billing State/Province", BILLING["state"]),
                 ("Billing Zip/Postal Code", BILLING["zip"]),
-                ("Billing Country", BILLING["country"]),
             ):
                 sf.fill(label, value)
+            # Country and State are picklists once the org turns on State
+            # and Country picklists, and State's options depend on Country
+            # — so Country has to go first. Orgs without that feature
+            # render both as plain text, hence the fill() fallback.
+            for label, value in (
+                ("Billing Country", BILLING["country"]),
+                ("Billing State/Province", BILLING["state"]),
+            ):
+                if value and not sf.set_picklist(label, value):
+                    sf.fill(label, value)
             sf.assert_("Form populated", True)
 
         with sf.step(5, "Save the Account"):
             sf.assert_("'Save' clicked", sf.click("Save"))
+            # Orgs with the standard duplicate rules on will flag a rerun's
+            # record as similar to the last one; acknowledging re-saves it.
+            sf.confirm_duplicates()
             sf.wait_for_toast(DATA["expected_toast"])
 
         with sf.step(6, "Verify the Account persisted"):

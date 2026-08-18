@@ -98,7 +98,17 @@ class StepTracker:
             "label": label,
             "name": name,
             "url": final_url,
+            "record_id": record_id,
+            "object_type": object_type,
         })
+        # Registering a record also enrolls it for teardown cleanup — see
+        # the _cleanup_records fixture in tests/conftest.py. Tests that
+        # create data are expected to declare it here anyway (it is what
+        # renders the record links in the report), so cleanup comes free.
+        if record_id and object_type:
+            if not hasattr(self, "created_records"):
+                self.created_records = []
+            self.created_records.append((object_type, record_id, name))
 
     def pass_step(self, screenshot_path: str = None):
         step = self.steps[-1]

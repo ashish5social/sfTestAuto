@@ -34,10 +34,124 @@ When this doesn't work
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys as _sys
 from typing import Iterable
 
 from playwright.sync_api import Page
+
+
+# ── Label resolution ───────────────────────────────────────────────────
+#
+# Two things make "find the field labelled X" harder than it looks:
+#
+# 1. The page *behind* an open modal keeps its own controls. A list view
+#    labels every column-resize slider "<Column> column width", so a
+#    loose match for "Account Name" can return the slider — which is
+#    never visible, so the caller waits forever for it to become ready.
+# 2. Required fields render their label as "*Account Name" in some
+#    layouts and "Account Name" in others.
+#
+# So: scope to the dialog when there is one, try exact before loose, and
+# only ever return something the user could actually see.
+
+
+_FIELD_STAMP = "data-sfauto-field"
+
+# Walks the document *and* every open shadow root, scoring each control
+# against the wanted label. Runs in one round-trip and stamps the winner
+# so Playwright can grab it by attribute.
+_RESOLVE_JS = r"""
+(args) => {
+  const [want, stamp, needEditable] = args;
+  const norm = t => (t || "").replace(/\s+/g, " ").replace(/^\*\s*/, "").trim().toLowerCase();
+  const target = norm(want);
+  const seen = [];
+
+  const collect = (root) => {
+    for (const el of root.querySelectorAll("input, textarea, select")) seen.push(el);
+    for (const el of root.querySelectorAll("*")) if (el.shadowRoot) collect(el.shadowRoot);
+  };
+  collect(document);
+
+  const inDialog = el => !!el.closest(
+    "div.slds-modal, section[role='dialog'], div[role='dialog']");
+
+  let best = null, bestScore = -1;
+  for (const el of seen) {
+    // Assistive-only controls (list-view column resizers are the classic
+    // trap: aria-label "Account Name column width") are never the field
+    // a test means.
+    if (el.type === "range" || el.type === "hidden") continue;
+    if (el.classList.contains("slds-assistive-text")) continue;
+    if (needEditable && (el.disabled || el.readOnly)) continue;
+    if (!el.getClientRects().length) continue;
+
+    let score = -1;
+    const root = el.getRootNode();
+    const lab = el.id ? root.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+    if (lab && norm(lab.textContent) === target) score = 3;
+    else if (norm(el.getAttribute("aria-label")) === target) score = 2;
+    else if (lab && norm(lab.textContent).includes(target)) score = 1;
+    if (score < 0) continue;
+    if (inDialog(el)) score += 10;   // the open modal always wins
+
+    if (score > bestScore) { bestScore = score; best = el; }
+  }
+  if (!best) return null;
+  document.querySelectorAll(`[${stamp}]`).forEach(e => e.removeAttribute(stamp));
+  const token = "f" + Math.random().toString(36).slice(2, 10);
+  best.setAttribute(stamp, token);
+  return token;
+}
+"""
+
+
+# Guards the fallback path the same way the walk guards itself. Without
+# it a list view's column-resize slider passes visible+editable and gets
+# handed back as "the field", which then fails on fill with a value the
+# range input can't take.
+_IS_FILLABLE_JS = """
+(el) => el.type !== "range" && el.type !== "hidden"
+        && !el.classList.contains("slds-assistive-text")
+"""
+
+
+def field_by_label(page: Page, label: str, *, editable: bool = False):
+    """Resolve a visible form control from its label. None if not found.
+
+    Matches on the ``<label for=...>`` text first, then ``aria-label``,
+    then a substring — and always prefers a control inside the open
+    modal, because the page behind it has controls of its own.
+    """
+    try:
+        token = page.evaluate(_RESOLVE_JS, [label, _FIELD_STAMP, editable])
+    except Exception as e:
+        token = None
+        if os.getenv("SFAUTO_DEBUG"):
+            print(f"    [field_by_label] JS resolve failed: {e}", file=_sys.stderr)
+    if token is None and os.getenv("SFAUTO_DEBUG"):
+        print(f"    [field_by_label] no JS match for {label!r}", file=_sys.stderr)
+    if token:
+        return page.locator(f'[{_FIELD_STAMP}="{token}"]')
+
+    # Fallback for the rare layout the walk misses (closed shadow roots).
+    for text, exact in ((label, True), (f"*{label}", True), (label, False)):
+        try:
+            loc = page.get_by_label(text, exact=exact)
+            for i in range(min(loc.count(), 10)):
+                c = loc.nth(i)
+                if not c.is_visible():
+                    continue
+                if editable and not c.is_editable():
+                    continue
+                if not c.evaluate(_IS_FILLABLE_JS):
+                    continue
+                return c
+        except Exception:
+            continue
+    return None
 
 
 # ── Simple fields ──────────────────────────────────────────────────────
@@ -51,15 +165,11 @@ def fill_field_by_label(page: Page, label: str, value: str) -> bool:
     matching field was filled, False otherwise — callers usually
     raise on False to fail the step early.
     """
-    for variant in (label, f"*{label}"):
-        try:
-            field = page.get_by_label(variant, exact=False)
-            if field.count() > 0:
-                field.first.fill(value)
-                return True
-        except Exception:
-            continue
-    return False
+    field = field_by_label(page, label, editable=True)
+    if field is None:
+        return False
+    field.fill(value)
+    return True
 
 
 def fill_date_field(page: Page, label: str, value: str) -> bool:
@@ -67,22 +177,17 @@ def fill_date_field(page: Page, label: str, value: str) -> bool:
     (so reruns on the same record don't append). Presses Tab after to
     commit. Value format is whatever the input accepts (typically
     M/D/YYYY in US locales)."""
-    for variant in (label, f"*{label}"):
-        try:
-            field = page.get_by_label(variant, exact=False)
-            if field.count() == 0:
-                continue
-            try:
-                field.first.click()
-                field.first.press("Control+a")
-            except Exception:
-                pass
-            field.first.fill(value)
-            field.first.press("Tab")
-            return True
-        except Exception:
-            continue
-    return False
+    field = field_by_label(page, label, editable=True)
+    if field is None:
+        return False
+    try:
+        field.click()
+        field.press("Control+a")
+    except Exception:
+        pass
+    field.fill(value)
+    field.press("Tab")
+    return True
 
 
 def wait_for_form_dialog_ready(
@@ -114,20 +219,72 @@ def wait_for_form_dialog_ready(
     deadline = page.evaluate("Date.now()") + timeout_ms
     for label in required_labels:
         while True:
-            field = page.get_by_label(label, exact=False)
-            if field.count() == 0:
-                field = page.get_by_label(f"*{label}", exact=False)
-            if field.count() > 0:
-                try:
-                    if field.first.is_visible() and field.first.is_editable():
-                        break
-                except Exception:
-                    pass
+            if field_by_label(page, label, editable=True) is not None:
+                break
             if page.evaluate("Date.now()") > deadline:
                 raise TimeoutError(
                     f"Form field '{label}' not ready within {timeout_ms}ms"
                 )
             page.wait_for_timeout(500)
+
+
+# ── Save-time interruptions ────────────────────────────────────────────
+
+
+def dismiss_error_dialog(page: Page) -> bool:
+    """Close Lightning's "Sorry to interrupt" JS-error dialog if it is up.
+
+    It renders *above* the record modal, so anything left unclicked
+    behind it silently fails. Returns True if one was dismissed.
+    """
+    try:
+        dlg = page.get_by_text(re.compile(r"Sorry to interrupt", re.I))
+        if dlg.count() == 0 or not dlg.first.is_visible():
+            return False
+        ok = page.get_by_role("button", name=re.compile(r"^\s*OK\s*$", re.I))
+        for i in range(min(ok.count(), 5)):
+            if ok.nth(i).is_visible():
+                ok.nth(i).click()
+                page.wait_for_timeout(500)
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def confirm_duplicate_warning(page: Page, *, save_label: str = "Save") -> bool:
+    """Push a record past an *alert*-level duplicate rule.
+
+    Most orgs ship the Standard Duplicate Rules on, and test data
+    repeats by design — so the second run flags the first run's record
+    as "Similar Records Exist" and the first Save click only surfaces
+    the warning. Salesforce expects the user to acknowledge it by
+    clicking Save again; that is exactly what this does.
+
+    Returns True if a warning was found and Save was re-clicked.
+    """
+    dismiss_error_dialog(page)
+    try:
+        warning = page.get_by_text(
+            re.compile(r"Similar Records Exist|potential duplicate", re.I)
+        )
+        if warning.count() == 0 or not warning.first.is_visible():
+            return False
+    except Exception:
+        return False
+
+    try:
+        save = page.get_by_role(
+            "button", name=re.compile(rf"^\s*{re.escape(save_label)}\s*$", re.I)
+        )
+        for i in range(min(save.count(), 5)):
+            cand = save.nth(i)
+            if cand.is_visible() and cand.is_enabled():
+                cand.click()
+                return True
+    except Exception:
+        pass
+    return False
 
 
 # ── Record type radio (shadow-DOM walk) ────────────────────────────────
@@ -168,6 +325,38 @@ def select_record_type(page: Page, value: str) -> bool:
 # ── Picklist / combobox / Aura stage dialog ────────────────────────────
 
 
+def _click_option(page: Page, trigger, value: str) -> bool:
+    """Click the option matching ``value`` in the popup ``trigger`` opened.
+
+    Scoped to the listbox named by aria-controls when the control
+    declares one, so an identically-named option belonging to another
+    open picklist can't be picked by mistake.
+    """
+    exact = re.compile(rf"^\s*{re.escape(value)}\s*$", re.I)
+    scopes = []
+    try:
+        controls = trigger.get_attribute("aria-controls")
+        if controls:
+            scopes.append(page.locator(f"#{controls}"))
+    except Exception:
+        pass
+    scopes.append(page)
+
+    for scope in scopes:
+        for sel in ("[role='option']", "[role='menuitem']",
+                    "lightning-base-combobox-item"):
+            try:
+                loc = scope.locator(sel).filter(has_text=exact)
+                for i in range(min(loc.count(), 8)):
+                    cand = loc.nth(i)
+                    if cand.is_visible():
+                        cand.click()
+                        return True
+            except Exception:
+                continue
+    return False
+
+
 def select_picklist(page: Page, field_label: str, value: str) -> bool:
     """Set a picklist / combobox / Aura-anchor picklist value.
 
@@ -197,6 +386,47 @@ def select_picklist(page: Page, field_label: str, value: str) -> bool:
             dialog = page
     except Exception:
         dialog = page
+
+    # A0) Precise path: resolve the control from its label the same way
+    # fill() does — shadow-DOM aware and dialog-scoped — then pick from
+    # the listbox that control declares via aria-controls.
+    #
+    # This runs before the strategies below because those match on shape
+    # ("an anchor that says --None--", "the first button after the
+    # label") rather than on identity. On a compound Address field that
+    # is genuinely dangerous: the nearest button to "Billing
+    # State/Province" is the dialog's own Cancel, and clicking it throws
+    # away every value the test just entered.
+    trigger = field_by_label(page, field_label)
+    if trigger is not None:
+        try:
+            tag = trigger.evaluate("el => el.tagName.toLowerCase()")
+            if tag == "select":
+                for kwargs in ({"label": value}, {"value": value}):
+                    try:
+                        trigger.select_option(**kwargs)
+                        return True
+                    except Exception:
+                        continue
+            else:
+                trigger.scroll_into_view_if_needed()
+                trigger.click()
+                try:
+                    page.wait_for_selector(
+                        "[role='listbox'], [role='menu']",
+                        state="visible", timeout=3000,
+                    )
+                except Exception:
+                    page.wait_for_timeout(500)
+                if _click_option(page, trigger, value):
+                    return True
+                # Leave the popup closed so the fallbacks start clean.
+                try:
+                    page.keyboard.press("Escape")
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     clicked_trigger = False
 

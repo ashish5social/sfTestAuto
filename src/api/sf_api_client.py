@@ -400,6 +400,7 @@ class SFApiClient:
         body: Any = None,
         params: dict | None = None,
         silent: bool = False,
+        extra_headers: dict | None = None,
     ) -> tuple[int, Any]:
         """
         Make an authenticated REST call and log it to the tracker.
@@ -422,6 +423,8 @@ class SFApiClient:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+        if extra_headers:
+            headers.update(extra_headers)
         t0 = time.time()
         call = APICall(
             name=name,
@@ -476,30 +479,77 @@ class SFApiClient:
             raise RuntimeError(f"SOQL failed [{status}]: {body}")
         return (body or {}).get("records", [])
 
-    def create(self, sobject: str, data: dict, *, name: str | None = None) -> str:
-        """Create an SObject. Returns the new record Id."""
+    def create(
+        self,
+        sobject: str,
+        data: dict,
+        *,
+        name: str | None = None,
+        allow_duplicates: bool = True,
+    ) -> str:
+        """Create an SObject. Returns the new record Id.
+
+        ``allow_duplicates`` sends ``Sforce-Duplicate-Rule-Header:
+        allowSave=true``, which lets the record through an *alert*-level
+        duplicate rule (``allowSave: true`` in the error payload). Most
+        orgs ship the Standard Account Duplicate Rule enabled, and test
+        data is repetitive by nature — without this, the second run of a
+        suite fails with DUPLICATES_DETECTED against the record the
+        first run left behind. Block-level rules still reject the
+        create, as they should. Pass ``allow_duplicates=False`` when the
+        duplicate rule is the thing under test.
+        """
         call_name = name or f"REST: POST /sobjects/{sobject}"
         status, body = self._request(
             "POST",
             f"/services/data/v{self.api_version}/sobjects/{sobject}",
             name=call_name,
             body=data,
+            extra_headers=(
+                {"Sforce-Duplicate-Rule-Header": "allowSave=true"}
+                if allow_duplicates else None
+            ),
         )
         if status >= 400:
             raise RuntimeError(f"Create {sobject} failed [{status}]: {body}")
         return body["id"]
 
-    def update(self, sobject: str, record_id: str, data: dict, *, name: str | None = None):
-        """PATCH an SObject."""
+    def update(
+        self,
+        sobject: str,
+        record_id: str,
+        data: dict,
+        *,
+        name: str | None = None,
+        allow_duplicates: bool = True,
+    ):
+        """PATCH an SObject. See ``create`` for ``allow_duplicates``."""
         call_name = name or f"REST: PATCH /sobjects/{sobject}/{record_id}"
         status, body = self._request(
             "PATCH",
             f"/services/data/v{self.api_version}/sobjects/{sobject}/{record_id}",
             name=call_name,
             body=data,
+            extra_headers=(
+                {"Sforce-Duplicate-Rule-Header": "allowSave=true"}
+                if allow_duplicates else None
+            ),
         )
         if status >= 400:
             raise RuntimeError(f"Update {sobject} failed [{status}]: {body}")
+
+    def delete(self, sobject: str, record_id: str, *, name: str | None = None) -> None:
+        """DELETE an SObject. A record that is already gone is not an error."""
+        call_name = name or f"REST: DELETE /sobjects/{sobject}/{record_id}"
+        status, body = self._request(
+            "DELETE",
+            f"/services/data/v{self.api_version}/sobjects/{sobject}/{record_id}",
+            name=call_name,
+        )
+        if status == 404:
+            return
+        if status >= 400:
+            raise RuntimeError(f"Delete {sobject} failed [{status}]: {body}")
 
     def describe(
         self, sobject: str, *, name: str | None = None, silent: bool = False

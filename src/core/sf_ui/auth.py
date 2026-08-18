@@ -31,6 +31,7 @@ When this doesn't work
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Optional
 from urllib.parse import quote as url_quote, urlparse
 
@@ -112,8 +113,54 @@ def get_frontdoor_url(
     instance_url: Optional[str] = None
     errors: list[str] = []
 
+    # ── Strategy 0: JWT bearer ───────────────────────────────────────
+    # Tried first because it is the only headless flow that issues a
+    # *web*-scoped token. Client-credentials tokens only ever carry the
+    # "api" scope, and frontdoor.jsp rejects those — so on an SSO-gated
+    # org JWT is what makes the UI login possible at all.
+    key_file = os.getenv("SF_JWT_KEY_FILE", "").strip()
+    jwt_user = os.getenv("SF_JWT_USERNAME", "").strip() or username
+    if key_file and client_id:
+        try:
+            import time as _time
+
+            import jwt as _jwt  # PyJWT
+
+            aud = ("https://test.salesforce.com"
+                   if "sandbox" in sf_url or "test.salesforce" in sf_url
+                   else "https://login.salesforce.com")
+            assertion = _jwt.encode(
+                {"iss": client_id, "sub": jwt_user, "aud": aud,
+                 "exp": int(_time.time()) + 300},
+                Path(key_file).read_bytes(), algorithm="RS256",
+            )
+            resp = requests.post(
+                f"{sf_url.rstrip('/')}/services/oauth2/token",
+                data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                      "assertion": assertion},
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                session_id = data["access_token"]
+                instance_url = data["instance_url"]
+            else:
+                try:
+                    body = resp.json()
+                    detail = body.get("error_description") or body.get("error", "")
+                except Exception:
+                    detail = resp.text[:200]
+                errors.append(f"JWT bearer: {resp.status_code} — {detail}")
+        except ImportError:
+            errors.append("JWT bearer: PyJWT not installed")
+        except FileNotFoundError:
+            errors.append(f"JWT bearer: key file not found: {key_file}")
+        except Exception as e:
+            errors.append(f"JWT bearer: {type(e).__name__}: {e}")
+
+
     # ── Strategy 1: OAuth Client Credentials ─────────────────────────
-    if client_id and client_secret:
+    if session_id is None and client_id and client_secret:
         token_urls = []
         if (
             "salesforce.com" in sf_url

@@ -71,7 +71,7 @@ class TestAccountApi:
 
         with sf.step(5, "Clean up"):
             if DATA.get("cleanup") and record_id:
-                api.sf.Account.delete(record_id)
+                api.delete("Account", record_id)
                 remaining = api.soql(
                     f"SELECT Id FROM Account WHERE Id = '{record_id}'",
                     name="Confirm deletion",

@@ -229,6 +229,7 @@ def main():
 def _doctor() -> int:
     """Preflight check. Returns a shell exit code (0 = all good)."""
     import importlib, os, shutil
+    from pathlib import Path
 
     warnings = 0
     ok, warn, fail = "  \033[32m✔\033[0m", "  \033[33m!\033[0m", "  \033[31m✘\033[0m"
@@ -291,12 +292,33 @@ def _doctor() -> int:
     else:
         print(f"{ok} Credentials present (SF_USERNAME, SF_PASSWORD)")
 
-    # 6. Live org connectivity (only if creds exist)
+    # 6. UI login strategy — the piece people most often have half-configured
+    try:
+        from src.core.org_profile import load_profile as _lp
+        strategy = _lp().ui_login
+        key_file = os.getenv("SF_JWT_KEY_FILE", "").strip()
+        if strategy == "frontdoor" and not key_file:
+            print(f"{warn} ui_login=frontdoor but SF_JWT_KEY_FILE is not set.")
+            print( "       Client-credentials tokens carry only the 'api' scope,")
+            print( "       which frontdoor.jsp rejects. See docs/AUTHENTICATION.md")
+            warnings += 1
+        elif key_file and not Path(key_file).exists():
+            print(f"{fail} SF_JWT_KEY_FILE points at a missing file: {key_file}")
+            problems += 1
+        elif key_file:
+            print(f"{ok} UI login '{strategy}' via JWT bearer ({key_file})")
+        else:
+            print(f"{ok} UI login strategy '{strategy}'")
+    except Exception as e:
+        print(f"{warn} Could not check UI login strategy: {e}"); warnings += 1
+
+    # 7. Live org connectivity (only if creds exist)
     if not missing:
         try:
             from src.api.sf_api_client import SFApiClient
             c = SFApiClient(); c.connect()
-            print(f"{ok} Connected to org as user {c.current_user_id}")
+            print(f"{ok} Connected to org as user {c.current_user_id} "
+                  f"[{c._auth_method}]")
         except Exception as e:
             lines = str(e).splitlines()
             print(f"{warn} Could not reach org — {lines[0]}")

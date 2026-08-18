@@ -25,7 +25,7 @@ login_strategy: auto
 #   frontdoor     session-id bypass for IP-gated orgs
 #   storage_state reuse a session from `sfauto auth capture` (SSO/MFA orgs)
 #   google_sso    org federated to Google
-ui_login: storage_state
+ui_login: frontdoor
 ui_login_options:
   storage_state_path: .auth/storage_state.json
 

@@ -522,6 +522,16 @@ class SFHelpers:
     def set_stage(self, value: str) -> bool:
         return sfui_forms.set_stage(self._page, value)
 
+    def confirm_duplicates(self, save_label: str = "Save") -> bool:
+        """Acknowledge an alert-level duplicate warning by re-clicking Save."""
+        return sfui_forms.confirm_duplicate_warning(
+            self._page, save_label=save_label,
+        )
+
+    def dismiss_error_dialog(self) -> bool:
+        """Close Lightning's "Sorry to interrupt" dialog if it is showing."""
+        return sfui_forms.dismiss_error_dialog(self._page)
+
     def wait_form_ready(self, required_labels, **kwargs):
         sfui_forms.wait_for_form_dialog_ready(self._page, required_labels, **kwargs)
 
@@ -593,6 +603,43 @@ class SFHelpers:
         if tr and tr.steps:
             tr.steps[-1].setdefault("golden_diffs", []).append(result)
         return result
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_records(request):
+    """Delete every record the test registered via ``tracker.add_record``.
+
+    Test data that outlives its run is not free: Salesforce's standard
+    duplicate rules fuzzy-match on it, so yesterday's Account makes
+    today's create fail with DUPLICATES_DETECTED — the suite poisons
+    itself. Deleting on the way out keeps runs independent.
+
+    Set ``SFAUTO_KEEP_RECORDS=1`` to leave the data in place when you
+    need to inspect what a failing run produced.
+    """
+    yield
+    if os.getenv("SFAUTO_KEEP_RECORDS"):
+        return
+    records = []
+    for name in ("tracker", "api_tracker"):
+        t = request.node.funcargs.get(name)
+        records.extend(getattr(t, "created_records", []) or [])
+    if not records:
+        return
+    try:
+        from src.api.sf_api_client import SFApiClient
+        client = SFApiClient()
+        client.connect()
+    except Exception as e:
+        print(f"  [cleanup] skipped — could not connect: {e}")
+        return
+    for sobject, record_id, rec_name in records:
+        try:
+            client.delete(sobject, record_id)
+            print(f"  [cleanup] deleted {sobject} {record_id} ({rec_name})")
+        except Exception as e:
+            # Already gone, or the test deleted it itself — not a failure.
+            print(f"  [cleanup] could not delete {sobject} {record_id}: {e}")
 
 
 @pytest.fixture()

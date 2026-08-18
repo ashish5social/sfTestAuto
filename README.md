@@ -955,6 +955,8 @@ Mismatched image sizes always count as a diff. Refresh baselines with `sfauto te
 | `SF_SECURITY_TOKEN` | — | Appended to password for API auth (not UI) |
 | `SF_LOGIN_URL` | — | e.g. `https://myorg--dev.sandbox.my.salesforce.com` |
 | `SF_CLIENT_ID`, `SF_CLIENT_SECRET` | — | OAuth client_credentials (preferred over SOAP) |
+| `SF_JWT_KEY_FILE`, `SF_JWT_USERNAME` | — | JWT bearer — the only headless flow that yields a `web`-scoped token, so it is what makes UI login work on SSO/MFA orgs. See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) |
+| `SFAUTO_KEEP_RECORDS` | — | `1` keeps records a test created instead of deleting them at teardown |
 | `BROWSER_HEADLESS` | `false` | `true` forces headless even without `--headless` |
 | `SFAUTO_OUTPUT_DIR` | project root | Where reports/, screenshots/, videos_tmp/ live |
 | `SFAUTO_API_LOG_FULL` | `false` | Disable 700-char body truncation in API logs |
